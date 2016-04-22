@@ -3,6 +3,8 @@
   #include <math.h>
   int yylex (void);
   void yyerror (char const *);
+  extern int yylineno;
+  extern FILE *yyin;
 %}
 
 %token TSTRINGCONST TCOMMENT TKVOID TKINT TKDOUBLE TKBOOL TKSTRING TKCLASS TKINTERFACE TKNULL TKTHIS TKEXTENDS
@@ -32,12 +34,15 @@ formals :
     var 
     |
     formals TPCOMMA var;
-    
+
+type :
+    TKINT | TKBOOL | TKDOUBLE | TKSTRING | TIDENT | type TOLSB TORSB;
+
 var :
     type TIDENT;
 
 vardefine :
-    var TPCOMMA;
+    var TPSEP;
 
 vardefines :
     %empty | vardefines vardefine;
@@ -73,6 +78,8 @@ expr :
     expr TOPLUS expr
     |
     expr TOMINUS expr
+    |
+    expr TOMUL expr
     |
     expr TODIV expr
     |
@@ -201,12 +208,28 @@ define :
     |
     interfacedefine;
 
-type :
-    TKINT | TKBOOL | TKDOUBLE | TKSTRING | TIDENT | type TOLSB TORSB;
-
 program :
      %empty
      | 
      program define;
 
 %%
+    int main(int argc, char **argv)
+    {
+        if (argc == 2)
+        {
+        yyin=fopen(argv[1],"r");
+
+        yyparse();
+        }
+        else
+        {
+            printf("Usage %s [FILE]\n", argv[0]);
+        }
+    return 0;
+   }
+   
+   void yyerror(const char *s)
+   {
+        printf("Error at line %d, message: %s\n", yylineno, s);
+   }

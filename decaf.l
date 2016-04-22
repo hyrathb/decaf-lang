@@ -4,7 +4,9 @@
 
 #include <stdlib.h>
 
-#define TOKEN(t)
+#include "decaf.tab.h"
+
+#define TOKEN(t) return t
 #define YY_USER_ACTION { if (yylineno != lineno) \
                         { col = 1;\
                           lineno = yylineno;    \
@@ -77,77 +79,64 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 %%
 
 [\ \t\n]          {col += yyleng;}
-{STRINGCONST}  {printf("%d:%d (const string, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TSTRINGCONST);}
-{COMMENT}      {printf("%d:%d (comment, %s)\n", yylineno, col, yytext); col += yyleng; TOKEN(TCOMMENT);}
-{KVOID}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKVOID);}
-{KINT}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKINT);}
-{KDOUBLE}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKDOUBLE);}
-{KBOOL}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKBOOL);}
-{KSTRING}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKSTRING);}
-{KCLASS}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKCLASS);}
-{KINTERFACE}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKINTERFACE);}
-{KNULL}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKNULL);}
-{KTHIS}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKTHIS);}
-{KEXTENDS}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKEXTENDS);}
-{KIMPLEMENTS}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKIMPLEMENTS);}
-{KFOR}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKFOR);}
-{KWHILE}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKWHILE);}
-{KIF}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKIF);}
-{KELSE}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKELSE);}
-{KRETURN}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKRETURN);}
-{KBREAK}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKBREAK);}
-{KNEW}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKNEW);}
-{KNEWARRAY}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKNEWARRAY);}
-{KPRINT}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKPRINT);}
-{KREADINTEGER}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKREADINTEGER);}
-{KREADLINE}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKREADLINE);}
-{BOOLCONST}      {printf("%d:%d (const bool, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TBOOLCONST);}
-<AMOP>\+      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOPLUS);}
-<AMOP>\-      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOMINUS);}
-{OMUL}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOMUL);}
-{ODIV}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TODIV);}
-{OIDIV}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOIDIV);}
-{OLT}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOLT);}
-{OLE}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOLE);}
-{OGT}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOGT);}
-{OGE}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOGE);}
-{OEQU}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOEQU);}
-{ONE}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TONE);}
-{OASSIGN}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOASSIGN);}
-{OAND}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOAND);}
-{OOR}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOOR);}
-{ONOT}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TONOT);}
-{OLSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOLSB);}
-{ORSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TORSB);}
-{OLB}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOLB);}
-{ORB}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TORB);}
-{PPOINT}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPPOINT);}
-{PSEP}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPSEP);}
-{PCOMMA}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPCOMMA);}
-{PLBB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPLBB);}
-{PRBB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPRBB);}
-{IDENTIFIER}      {printf("%d:%d (identifier, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TIDENT);}
-<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
-<INITIAL>([\+\-]?[0-9]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
-<INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      {printf("%d:%d (const double, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TDOUBLECONST);}
-.|{ERROR_ID}                   {printf("near %d:%d illegal identifier %s\n", yylineno, col, yytext);}
+{STRINGCONST}  { BEGIN(AMOP); col += yyleng; TOKEN(TSTRINGCONST);}
+{COMMENT}      { col += yyleng; TOKEN(TCOMMENT);}
+{KVOID}      {  col += yyleng; TOKEN(TKVOID);}
+{KINT}      {  col += yyleng; TOKEN(TKINT);}
+{KDOUBLE}      {  col += yyleng; TOKEN(TKDOUBLE);}
+{KBOOL}      {  col += yyleng; TOKEN(TKBOOL);}
+{KSTRING}      {  col += yyleng; TOKEN(TKSTRING);}
+{KCLASS}      {  col += yyleng; TOKEN(TKCLASS);}
+{KINTERFACE}      {  col += yyleng; TOKEN(TKINTERFACE);}
+{KNULL}      {  col += yyleng; TOKEN(TKNULL);}
+{KTHIS}      {  col += yyleng; TOKEN(TKTHIS);}
+{KEXTENDS}      {  col += yyleng; TOKEN(TKEXTENDS);}
+{KIMPLEMENTS}      {  col += yyleng; TOKEN(TKIMPLEMENTS);}
+{KFOR}      {  col += yyleng; TOKEN(TKFOR);}
+{KWHILE}      {  col += yyleng; TOKEN(TKWHILE);}
+{KIF}      {  col += yyleng; TOKEN(TKIF);}
+{KELSE}      {  col += yyleng; TOKEN(TKELSE);}
+{KRETURN}      {  col += yyleng; TOKEN(TKRETURN);}
+{KBREAK}      {  col += yyleng; TOKEN(TKBREAK);}
+{KNEW}      {  col += yyleng; TOKEN(TKNEW);}
+{KNEWARRAY}      {  col += yyleng; TOKEN(TKNEWARRAY);}
+{KPRINT}      {  col += yyleng; TOKEN(TKPRINT);}
+{KREADINTEGER}      {  col += yyleng; TOKEN(TKREADINTEGER);}
+{KREADLINE}      {  col += yyleng; TOKEN(TKREADLINE);}
+{BOOLCONST}      {  col += yyleng; TOKEN(TBOOLCONST);}
+<AMOP>\+      { BEGIN(0); col += yyleng; TOKEN(TOPLUS);}
+<AMOP>\-      { BEGIN(0); col += yyleng; TOKEN(TOMINUS);}
+{OMUL}      { BEGIN(0); col += yyleng; TOKEN(TOMUL);}
+{ODIV}      { BEGIN(0); col += yyleng; TOKEN(TODIV);}
+{OIDIV}      { BEGIN(0); col += yyleng; TOKEN(TOIDIV);}
+{OLT}      { BEGIN(0); col += yyleng; TOKEN(TOLT);}
+{OLE}      { BEGIN(0); col += yyleng; TOKEN(TOLE);}
+{OGT}      { BEGIN(0); col += yyleng; TOKEN(TOGT);}
+{OGE}      { BEGIN(0); col += yyleng; TOKEN(TOGE);}
+{OEQU}      { BEGIN(0); col += yyleng; TOKEN(TOEQU);}
+{ONE}      { BEGIN(0); col += yyleng; TOKEN(TONE);}
+{OASSIGN}      { BEGIN(0); col += yyleng; TOKEN(TOASSIGN);}
+{OAND}      { BEGIN(0); col += yyleng; TOKEN(TOAND);}
+{OOR}      { BEGIN(0); col += yyleng; TOKEN(TOOR);}
+{ONOT}      { BEGIN(0); col += yyleng; TOKEN(TONOT);}
+{OLSB}      { BEGIN(0); col += yyleng; TOKEN(TOLSB);}
+{ORSB}      { BEGIN(0); col += yyleng; TOKEN(TORSB);}
+{OLB}      { BEGIN(0); col += yyleng; TOKEN(TOLB);}
+{ORB}      { BEGIN(AMOP); col += yyleng; TOKEN(TORB);}
+{PPOINT}      { BEGIN(0); col += yyleng; TOKEN(TPPOINT);}
+{PSEP}      { BEGIN(0); col += yyleng; TOKEN(TPSEP);}
+{PCOMMA}      { BEGIN(0); col += yyleng; TOKEN(TPCOMMA);}
+{PLBB}      { BEGIN(0); col += yyleng; TOKEN(TPLBB);}
+{PRBB}      { BEGIN(0); col += yyleng; TOKEN(TPRBB);}
+{IDENTIFIER}      { BEGIN(AMOP); col += yyleng; TOKEN(TIDENT);}
+<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      { BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
+<INITIAL>([\+\-]?[0-9]+)      { BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
+<INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      { BEGIN(AMOP); col += yyleng; TOKEN(TDOUBLECONST);}
+.|{ERROR_ID}                   {}
 
 %%
 
-    int main(int argc, char **argv)
-    {
-        if (argc == 2)
-        {
-        yyin=fopen(argv[1],"r");
 
-        yylex();
-        }
-        else
-        {
-            printf("Usage %s [FILE]\n", argv[0]);
-        }
-    return 0;
-   }
    
    int yywrap()
    {
