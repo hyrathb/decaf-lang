@@ -66,10 +66,10 @@ PLBB      \{
 PRBB      \}
 LETTER [A-Za-z]
 DIGITI [0-9]
-ERROR_ID [0-9]{LETTER}+
 IDENTIFIER {LETTER}[\_0-9a-zA-Z]*
 INTCONSTHEX ([\+\-]?0[xX][0-9a-fA-F]+)
 INTCONSTDEC ([\+\-]?[0-9]+)
+ERROR_ID [0-9]+[A-Za-z][0-9A-Za-z]
 DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 
 %s    AMOP
@@ -77,7 +77,7 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 %%
 
 [\ \t\n]          {col += yyleng;}
-{STRINGCONST}  {printf("%d:%d (const string, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TSTRING);}
+{STRINGCONST}  {printf("%d:%d (const string, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TSTRINGCONST);}
 {COMMENT}      {printf("%d:%d (comment, %s)\n", yylineno, col, yytext); col += yyleng; TOKEN(TCOMMENT);}
 {KVOID}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKVOID);}
 {KINT}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKINT);}
@@ -101,7 +101,7 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 {KPRINT}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKPRINT);}
 {KREADINTEGER}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKREADINTEGER);}
 {KREADLINE}      {printf("%d:%d (keyword, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TKREADLINE);}
-{BOOLCONST}      {printf("%d:%d (const bool, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TBOOL);}
+{BOOLCONST}      {printf("%d:%d (const bool, %s)\n", yylineno, col, yytext);  col += yyleng; TOKEN(TBOOLCONST);}
 <AMOP>\+      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOPLUS);}
 <AMOP>\-      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOMINUS);}
 {OMUL}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOMUL);}
@@ -126,12 +126,11 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 {PRSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPRSB);}
 {PLBB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPLBB);}
 {PRBB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPRBB);}
-{ERROR_ID}         {printf("near %d:%d illegal identifier %s\n", yylineno, col, yytext);}
 {IDENTIFIER}      {printf("%d:%d (identifier, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TIDENT);}
-<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINT);}
-<INITIAL>([\+\-]?[0-9]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINT);}
-<INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      {printf("%d:%d (const double, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TDOUBLE);}
-.                   {printf("near %d:%d illegal identifier %s\n", yylineno, col, yytext);}
+<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(THEXINTCONST);}
+<INITIAL>([\+\-]?[0-9]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
+<INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      {printf("%d:%d (const double, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TDOUBLECONST);}
+.|{ERROR_ID}                   {printf("near %d:%d illegal identifier %s\n", yylineno, col, yytext);}
 
 %%
 
