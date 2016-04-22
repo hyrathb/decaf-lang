@@ -1,0 +1,27 @@
+class a
+{
+    string name = "";
+    int id=0;
+    void func1()
+    {
+        if name!=""
+        {
+            printf("has name\n");
+        }
+    }
+    
+}
+
+int main(int argc, string argv)
+{
+    int a=-0x1234, b=3456,c;
+    double d=12.e+1234;//test
+    /*daslkfjkl***dsa
+    asfkj8***jskda*/
+    a=0;
+    /*ldaksj///fasdj*/
+    string x="123asdvbnf\",y="";
+    if (a>b && c<d)
+        a=a+b-c/d;
+    8wtf;
+}
