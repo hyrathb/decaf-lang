@@ -54,14 +54,14 @@ OASSIGN   \=
 OAND      \&\&
 OOR       \|\|
 ONOT      \!
+OLSB      \[
+ORSB      \]
 OLB       \(
 ORB       \)
 PUNCTUATION [\.\;\,\[\]\{\}]
 PPOINT    \.
 PSEP      \;
 PCOMMA    \,
-PLSB      \[
-PRSB      \]
 PLBB      \{
 PRBB      \}
 LETTER [A-Za-z]
@@ -117,17 +117,17 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 {OAND}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOAND);}
 {OOR}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOOR);}
 {ONOT}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TONOT);}
+{OLSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOLSB);}
+{ORSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TORSB);}
 {OLB}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TOLB);}
 {ORB}      {printf("%d:%d (operator, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TORB);}
 {PPOINT}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPPOINT);}
 {PSEP}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPSEP);}
 {PCOMMA}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPCOMMA);}
-{PLSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPLSB);}
-{PRSB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPRSB);}
 {PLBB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPLBB);}
 {PRBB}      {printf("%d:%d (punctuation, %s)\n", yylineno, col, yytext); BEGIN(0); col += yyleng; TOKEN(TPRBB);}
 {IDENTIFIER}      {printf("%d:%d (identifier, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TIDENT);}
-<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(THEXINTCONST);}
+<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
 <INITIAL>([\+\-]?[0-9]+)      {printf("%d:%d (const int, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
 <INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      {printf("%d:%d (const double, %s)\n", yylineno, col, yytext); BEGIN(AMOP); col += yyleng; TOKEN(TDOUBLECONST);}
 .|{ERROR_ID}                   {printf("near %d:%d illegal identifier %s\n", yylineno, col, yytext);}
