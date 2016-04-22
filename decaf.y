@@ -24,6 +24,9 @@
 
 %start program
 
+%glr-parser
+
+
 %% /* Grammar rules and actions follow.  */
 
 constant:

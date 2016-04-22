@@ -6,7 +6,6 @@ class a
     {
         if (name!="")
         {
-            while(1);
             printf("has name\n");
         }
     }
@@ -21,7 +20,7 @@ int main(int argc, string argv)
     double d;
     string x;
     string y;
-    if (a==a);
+
     a=-0x1234;
     b=3456;
     d=12.e+1234;//test
