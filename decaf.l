@@ -80,7 +80,7 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 
 [\ \t\n]          {col += yyleng;}
 {STRINGCONST}  { BEGIN(AMOP); col += yyleng; TOKEN(TSTRINGCONST);}
-{COMMENT}      { col += yyleng; TOKEN(TCOMMENT);}
+{COMMENT}      { col += yyleng;}
 {KVOID}      {  col += yyleng; TOKEN(TKVOID);}
 {KINT}      {  col += yyleng; TOKEN(TKINT);}
 {KDOUBLE}      {  col += yyleng; TOKEN(TKDOUBLE);}

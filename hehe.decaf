@@ -6,6 +6,7 @@ class a
     {
         if (name!="")
         {
+            while(1);
             printf("has name\n");
         }
     }
@@ -14,9 +15,13 @@ class a
 
 int main(int argc, string argv)
 {
-    int a,b,c;
+    int a;
+    int b;
+    int c;
     double d;
-    string x,y;
+    string x;
+    string y;
+    if (a==a);
     a=-0x1234;
     b=3456;
     d=12.e+1234;//test
