@@ -1,10 +1,10 @@
 class a
 {
-    string name = "";
-    int id=0;
+    string name;
+    int id;
     void func1()
     {
-        if name!=""
+        if (name!="")
         {
             printf("has name\n");
         }
@@ -14,15 +14,20 @@ class a
 
 int main(int argc, string argv)
 {
-    int a=-0x1234, b=3456,c;
-    double d=12.e+1234;//test
+    int a,b,c;
+    double d;
+    string x,y;
+    a=-0x1234;
+    b=3456;
+    d=12.e+1234;//test
     /*daslkfjkl***dsa
     asfkj8***jskda*/
     a=0;
     /*ldaksj///fasdj*/
-    string x="123asdvbnf\",y="";
+    x="123asdvbnf\";
+    y="";
     if (a>b && c<d)
         a=a+b-c/d + 2+-3;
-    3+(2-+1)+-3;
+    b=3+(2-+1)+-3;
     8wtf;
 }

@@ -30,11 +30,16 @@ constant:
     TINTCONST | TDOUBLECONST | TBOOLCONST | TSTRINGCONST | TKNULL;
 
 
-formals :
+tformals :
     var 
     |
-    formals TPCOMMA var;
+    tformals TPCOMMA var;
 
+formals :
+    %empty
+    |
+    tformals;
+    
 type :
     TKINT | TKBOOL | TKDOUBLE | TKSTRING | TIDENT | type TOLSB TORSB;
 
@@ -169,7 +174,12 @@ funcdefine :
 
 field :
     vardefine | funcdefine;
-    
+
+fields :
+    %empty
+    |
+    fields field;
+
 extendclause :
     %empty
     |
@@ -186,7 +196,7 @@ implementclause :
     TKIMPLEMENTS identifierss;
     
 classdefine :
-    TKCLASS TIDENT extendclause implementclause TPLBB field TPRBB;
+    TKCLASS TIDENT extendclause implementclause TPLBB fields TPRBB;
 
 protype :
     type TIDENT TOLB formals TORB TPSEP
@@ -219,7 +229,7 @@ program :
         if (argc == 2)
         {
         yyin=fopen(argv[1],"r");
-
+        yydebug=1;
         yyparse();
         }
         else
