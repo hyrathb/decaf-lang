@@ -4,7 +4,7 @@
 
 #include <stdlib.h>
 
-#include "decaf.tab.h"
+#include "decaf.h"
 
 #define TOKEN(t) return t
 #define YY_USER_ACTION { if (yylineno != lineno) \
