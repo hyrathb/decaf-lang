@@ -1,10 +1,12 @@
 %{
   #include <stdio.h>
-  #include "sym.h"
   #include <math.h>
+  #include <stdlib.h>
+  #include <stdarg.h>
+  #include "sym.h"
   
   int yylex (void);
-  void yyerror (char const *);
+  void yyerror (char const *, ...);
   extern int yylineno;
   extern FILE *yyin;
 %}
@@ -32,7 +34,15 @@
 %% /* Grammar rules and actions follow.  */
 
 constant:
-    TINTCONST | TDOUBLECONST | TBOOLCONST | TSTRINGCONST | TKNULL;
+    TINTCONST{$$.text=NULL; $$.type_ok=1; $$.type = C_ICONST; $$.i_val=strtol($1.text, NULL, 0); free($1.text);} 
+    | 
+    TDOUBLECONST {$$.text=NULL; $$.type_ok=1; $$.type = C_DCONST; $$.i_val=atof($1.text); free($1.text);}
+    | 
+    TBOOLCONST {$$.text=NULL; $$.type_ok=1; $$.type = C_ICONST; $$.i_val= !strcmp($1.text, "true"); free($1.text);}
+    | 
+    TSTRINGCONST {$$.text=NULL; $$.type_ok=1; $$.type = C_SCONST; $$.s_val=$1.text;}
+    | 
+    TKNULL{$$.text=NULL; $$.type_ok=1; $$.type = C_NULL; $$.i_val=0;};
 
 
 tformals :
@@ -231,22 +241,29 @@ program :
      program define;
 
 %%
-    int main(int argc, char **argv)
+int main(int argc, char **argv)
+{
+    if (argc == 2)
     {
-        if (argc == 2)
-        {
         yyin=fopen(argv[1],"r");
         yydebug=1;
         yyparse();
-        }
-        else
-        {
-            printf("Usage %s [FILE]\n", argv[0]);
-        }
+    }
+    else
+    {
+        printf("Usage %s [FILE]\n", argv[0]);
+    }
     return 0;
-   }
+}
    
-   void yyerror(const char *s)
-   {
-        printf("Error at line %d, message: %s\n", yylineno, s);
-   }
+void yyerror(const char *s, ...)
+{
+    extern int col;
+    va_list ap;
+    va_start(ap, s);
+    fprintf(stderr, "[cc]Error(%d.%d): ", yylineno, col);
+    vfprintf(stderr, s, ap);
+    va_end(ap);
+    fputc('\n', stderr);
+    return;
+}

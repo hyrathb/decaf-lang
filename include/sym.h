@@ -13,6 +13,17 @@ enum decaf_type
     D_STRING
 };
 
+enum comp_type
+{
+    C_IDENT,
+    C_ICONST,
+    C_BCONST,
+    C_DCONST,
+    C_SCONST,
+    C_NULL,
+    OTHER
+};
+
 struct symres
 {
 };
@@ -20,8 +31,8 @@ struct symres
 struct semantics
 {
     char *text;
-    uint8_t type_OK;
-    enum decaf_type type;
+    uint8_t type_ok;
+    enum comp_type type;
     union
     {
         int i_val;

@@ -22,7 +22,7 @@ int main(int argc, string argv)
     string y;
 
     a=-0x1234;
-    b=3456;
+    b=3456
     d=12.e+1234;//test
     /*daslkfjkl***dsa
     asfkj8***jskda*/

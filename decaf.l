@@ -10,7 +10,8 @@
 #include "decaf.h"
 
 #define TOKEN(t) return t
-#define SAVE yylval.text = malloc(strlen(yytext)+1);
+#define SAVE {yylval.text = malloc(strlen(yytext)+1); \
+              strcpy(yylval.text, yytext);}
 #define YY_USER_ACTION { if (yylineno != lineno) \
                         { col = 1;\
                           lineno = yylineno;    \
@@ -107,7 +108,7 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 {KPRINT}      {  col += yyleng; TOKEN(TKPRINT);}
 {KREADINTEGER}      {  col += yyleng; TOKEN(TKREADINTEGER);}
 {KREADLINE}      {  col += yyleng; TOKEN(TKREADLINE);}
-{BOOLCONST}      {  col += yyleng; TOKEN(TBOOLCONST);}
+{BOOLCONST}      {  col += yyleng; SAVE; TOKEN(TBOOLCONST);}
 <AMOP>\+      { BEGIN(0); col += yyleng; TOKEN(TOPLUS);}
 <AMOP>\-      { BEGIN(0); col += yyleng; TOKEN(TOMINUS);}
 {OMUL}      { BEGIN(0); col += yyleng; TOKEN(TOMUL);}
