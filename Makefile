@@ -6,7 +6,7 @@ CC := gcc
 LD := ld
 BIN := test
 TESTFILE := hehe.decaf
-CFLAGS := -O2 -Wall -c -g -DYYDEBUG
+CFLAGS := -O2 -Wall -c -g -DYYDEBUG -Iinclude
 LEXICAL := decaf.l
 GRAMMAR := decaf.y
 LEXICAL_C := lexical.c
@@ -19,7 +19,7 @@ OBJS += decaf.o
 all: bin 
 
 test: bin
-	$(BIN) $(TESTFILE)
+	./$(BIN) $(TESTFILE)
 
 src : $(LEXICAL) $(GRAMMAR)
 	flex -F -o $(LEXICAL_C) $(LEXICAL)

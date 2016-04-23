@@ -1,6 +1,8 @@
 %{
   #include <stdio.h>
+  #include "sym.h"
   #include <math.h>
+  
   int yylex (void);
   void yyerror (char const *);
   extern int yylineno;

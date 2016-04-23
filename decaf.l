@@ -4,9 +4,13 @@
 
 #include <stdlib.h>
 
+#include <string.h>
+
+#include "sym.h"
 #include "decaf.h"
 
 #define TOKEN(t) return t
+#define SAVE yylval.text = malloc(strlen(yytext)+1);
 #define YY_USER_ACTION { if (yylineno != lineno) \
                         { col = 1;\
                           lineno = yylineno;    \
@@ -79,7 +83,7 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 %%
 
 [\ \t\n]          {col += yyleng;}
-{STRINGCONST}  { BEGIN(AMOP); col += yyleng; TOKEN(TSTRINGCONST);}
+{STRINGCONST}  { BEGIN(AMOP); col += yyleng; SAVE;TOKEN(TSTRINGCONST);}
 {COMMENT}      { col += yyleng;}
 {KVOID}      {  col += yyleng; TOKEN(TKVOID);}
 {KINT}      {  col += yyleng; TOKEN(TKINT);}
@@ -128,10 +132,10 @@ DOUBLECONST [\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?
 {PCOMMA}      { BEGIN(0); col += yyleng; TOKEN(TPCOMMA);}
 {PLBB}      { BEGIN(0); col += yyleng; TOKEN(TPLBB);}
 {PRBB}      { BEGIN(0); col += yyleng; TOKEN(TPRBB);}
-{IDENTIFIER}      { BEGIN(AMOP); col += yyleng; TOKEN(TIDENT);}
-<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      { BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
-<INITIAL>([\+\-]?[0-9]+)      { BEGIN(AMOP); col += yyleng; TOKEN(TINTCONST);}
-<INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      { BEGIN(AMOP); col += yyleng; TOKEN(TDOUBLECONST);}
+{IDENTIFIER}      { BEGIN(AMOP); col += yyleng; SAVE; TOKEN(TIDENT);}
+<INITIAL>([\+\-]?0[xX][0-9a-fA-F]+)      { BEGIN(AMOP); col += yyleng; SAVE; TOKEN(TINTCONST);}
+<INITIAL>([\+\-]?[0-9]+)      { BEGIN(AMOP); col += yyleng; SAVE; TOKEN(TINTCONST);}
+<INITIAL>[\+\-]?{DIGITI}+\.{DIGITI}*([eE]{INTCONSTDEC})?      { BEGIN(AMOP); col += yyleng; SAVE; TOKEN(TDOUBLECONST);}
 .|{ERROR_ID}                   {}
 
 %%
