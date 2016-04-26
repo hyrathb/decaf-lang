@@ -1,4 +1,4 @@
-class a
+class a extends x implements b,c,d
 {
     string name;
     int id;

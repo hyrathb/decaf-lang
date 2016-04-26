@@ -82,7 +82,7 @@ vardefine :
 vardefines :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_VARDEFINES; $$->vardefines = malloc(sizeof (struct vardefines)); $$->vardefines->vardefine = NULL; $$->vardefines->next = NULL; $$->vardefines->last=$$->vardefines;}
     | 
-    vardefines vardefine{$$=$1; $$->vardefines->last->next = malloc(sizeof (struct vardefines)); $$->vardefines->last=$$->vardefines->last->next; $$->vardefines->last->next = NULL; $$->vardefines->last->vardefine = $1;};
+    vardefines vardefine{$$=$1; $$->vardefines->last->next = malloc(sizeof (struct vardefines)); $$->vardefines->last=$$->vardefines->last->next; $$->vardefines->last->next = NULL; $$->vardefines->last->vardefine = $2;};
 
 actuals :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_ACTUALS; $$->actuals=malloc(sizeof(struct actuals)); $$->actuals->expr_with_comma = NULL;} 
@@ -230,7 +230,7 @@ extendclause :
 identifierss :
     TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_IDENT_WITH_COMMA; $$->id_with_comma = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->id = $1; $$->id_with_comma->next=NULL; $$->id_with_comma->last=$$->id_with_comma;}
     |
-    identifierss TPCOMMA TIDENT {$3->type_ok=1; $3->type=C_IDENT; free($$); $$=$1; $$->id_with_comma->last->next = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->last=$$->id_with_comma->last->next; $$->id_with_comma->last->id = $3; $$->id_with_comma->last->next=NULL;};
+    identifierss TPCOMMA TIDENT {$3->type_ok=1; $3->type=C_IDENT; $$=$1; $$->id_with_comma->last->next = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->last=$$->id_with_comma->last->next; $$->id_with_comma->last->id = $3; $$->id_with_comma->last->next=NULL;};
     
 implementclause :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_IMPLEMENT; $$->implement = malloc(sizeof(struct implement)); $$->implement->id_with_comma = NULL;}

@@ -24,7 +24,7 @@ void printindent(int indent)
 printit(ident)
 {
     ind;
-    printf("identifier:%s\n", s->text);
+    printf("identifier: %s\n", s->text);
 }
 
 printit(const)
@@ -195,7 +195,7 @@ printit(expr)
         break;
     case EXPR_LVAL:
         printf("lvalue expr:\n");
-        print_lvalue(indent+2, s->expr->expr1);
+        print_lvalue(indent+2, s->expr->lvalue);
         break;
     case EXPR_THIS:
         printf("this pointer expr:\n");
