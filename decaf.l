@@ -6,12 +6,12 @@
 
 #include <string.h>
 
-#include "sym.h"
+#include "defs.h"
 #include "decaf.h"
 
 #define TOKEN(t) return t
-#define SAVE {yylval.text = malloc(strlen(yytext)+1); \
-              strcpy(yylval.text, yytext);}
+#define SAVE {yylval = malloc(sizeof(struct semantics)); yylval->text = malloc(strlen(yytext)+1); \
+              strcpy(yylval->text, yytext);}
 #define YY_USER_ACTION { if (yylineno != lineno) \
                         { col = 1;\
                           lineno = yylineno;    \
