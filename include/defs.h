@@ -117,7 +117,6 @@ struct var
 
 struct vardefine
 {
-    enum decaf_type define_type;
     struct semantics *var;
 };
 
