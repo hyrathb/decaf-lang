@@ -38,13 +38,13 @@
 %% /* Grammar rules and actions follow.  */
 
 constant:
-    TINTCONST{$$->type_ok=1; $$->type = C_ICONST; $$->i_val=strtol($1->text, NULL, 0); free($1->text); free($1);} 
+    TINTCONST{$$=new_node; $$->type_ok=1; $$->type = C_ICONST; $$->i_val=strtol($1->text, NULL, 0); free($1->text); free($1);} 
     | 
-    TDOUBLECONST {$$->text=NULL; $$->type_ok=1; $$->type = C_DCONST; $$->d_val=atof($1->text); free($1->text); free($1);}
+    TDOUBLECONST {$$=new_node; $$->type_ok=1; $$->type = C_DCONST; $$->d_val=atof($1->text); free($1->text); free($1);}
     | 
-    TBOOLCONST {$$->text=NULL; $$->type_ok=1; $$->type = C_ICONST; $$->i_val= !strcmp($1->text, "true"); free($1->text); free($1);}
+    TBOOLCONST {$$=new_node; $$->type_ok=1; $$->type = C_ICONST; $$->i_val= !strcmp($1->text, "true"); free($1->text); free($1);}
     | 
-    TSTRINGCONST {$$->text=NULL; $$->type_ok=1; $$->type = C_SCONST; $$->s_val=$1->text; free($1);}
+    TSTRINGCONST {$$=new_node; $$->type_ok=1; $$->type = C_SCONST; $$->s_val=$1->text; free($1);}
     | 
     TKNULL{$$ = new_node; $$->text=NULL; $$->type_ok=1; $$->type = C_NULL; $$->i_val=0;};
 
@@ -52,7 +52,7 @@ constant:
 tformals :
     var {$$=new_node;$$->type_ok=1; $$->type=C_TFORMALS; $$->tformals = malloc(sizeof(struct tformals)); $$->tformals->var = $1; $$->tformals->next=NULL; $$->tformals->last=$$->tformals;}
     |
-    tformals TPCOMMA var {$$=new_node; $$->type_ok=1; $$->type=C_TFORMALS; $$->tformals->last->next= malloc(sizeof(struct tformals)); $$->tformals->last=$$->tformals->last->next; $$->tformals->last->next = NULL; $$->tformals->last->var = $3;};
+    tformals TPCOMMA var {$$=$1; $$->tformals->last->next= malloc(sizeof(struct tformals)); $$->tformals->last=$$->tformals->last->next; $$->tformals->last->next = NULL; $$->tformals->last->var = $3;};
 
 formals :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_FORMALS; $$->formals = malloc(sizeof (struct formals)); $$->formals->tformals = NULL;}
@@ -81,7 +81,7 @@ vardefine :
 vardefines :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_VARDEFINES; $$->vardefines = malloc(sizeof (struct vardefines)); $$->vardefines->vardefine = NULL; $$->vardefines->next = NULL; $$->vardefines->last=$$->vardefines;}
     | 
-    vardefines vardefine{$$=new_node; $$->type_ok=1; $$->type=C_VARDEFINES; $$->vardefines->last->next = malloc(sizeof (struct vardefines)); $$->vardefines->last=$$->vardefines->last->next; $$->vardefines->last->next = NULL; $$->vardefines->last->vardefine = $1;};
+    vardefines vardefine{$$=$1; $$->vardefines->last->next = malloc(sizeof (struct vardefines)); $$->vardefines->last=$$->vardefines->last->next; $$->vardefines->last->next = NULL; $$->vardefines->last->vardefine = $1;};
 
 actuals :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_ACTUALS; $$->actuals=malloc(sizeof(struct actuals)); $$->actuals->expr_with_comma = NULL;} 
@@ -105,7 +105,7 @@ expr :               /*NEED TO CHECK TYPE*/
     |
     constant {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_CONST; $$->expr->constant= $1; $$->expr->lvalue=NULL; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
-    lvalue {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr->expr_type=EXPR_LVAL; $$->expr->constant= NULL; $$->expr->lvalue=$1; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
+    lvalue {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_LVAL; $$->expr->constant= NULL; $$->expr->lvalue=$1; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
     TKTHIS {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_THIS; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
@@ -152,7 +152,7 @@ expr :               /*NEED TO CHECK TYPE*/
 exprss :
     expr {$$=new_node; $$->type_ok=1; $$->type=C_EXPR_WITH_COMMA; $$->expr_with_comma = malloc(sizeof(struct expr_with_comma)); $$->expr_with_comma->expr = $1; $$->expr_with_comma->next = NULL; $$->expr_with_comma->last=$$->expr_with_comma;}
     |
-    exprss TPCOMMA expr {$$=new_node; $$->type_ok=1; $$->type=C_EXPR_WITH_COMMA; $$->expr_with_comma->last->next = malloc(sizeof(struct expr_with_comma)); $$->expr_with_comma->last=$$->expr_with_comma->last->next; $$->expr_with_comma->last->expr = $3; $$->expr_with_comma->last->next = NULL;};
+    exprss TPCOMMA expr {$$=$1; $$->expr_with_comma->last->next = malloc(sizeof(struct expr_with_comma)); $$->expr_with_comma->last=$$->expr_with_comma->last->next; $$->expr_with_comma->last->expr = $3; $$->expr_with_comma->last->next = NULL;};
     
 ifstmt :
     TKIF TOLB expr TORB stmt {$$=new_node; $$->type_ok=1; $$->type=C_IFSTM; $$->if_stm = malloc(sizeof(struct if_stm)); $$->if_stm->expr = $3; $$->if_stm->stm1 = $5; $$->if_stm->stm2=NULL;}
@@ -201,7 +201,7 @@ stmt :
 stmts :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_STMS; $$->stms = malloc(sizeof(struct stms)); $$->stms->stm=NULL; $$->stms->next=NULL; $$->stms->last=$$->stms;}
     |
-    stmts stmt{$$=new_node; $$->type_ok=1; $$->type=C_STMS; $$->stms->last->next = malloc(sizeof(struct stms)); $$->stms->last=$$->stms->last->next; $$->stms->last->stm=$2; $$->stms->last->next=NULL;};
+    stmts stmt{$$=$1; $$->stms->last->next = malloc(sizeof(struct stms)); $$->stms->last=$$->stms->last->next; $$->stms->last->stm=$2; $$->stms->last->next=NULL;};
     
 stmtblock :
     TPLBB vardefines stmts TPRBB {$$=new_node; $$->type_ok=1; $$->type=C_STMBLOCK; $$->stmblock = malloc(sizeof(struct stmblock)); $$->stmblock->vardefines=$2; $$->stmblock->stms=$3;};
@@ -219,7 +219,7 @@ field :
 fields :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_FIELDS; $$->fields = malloc(sizeof(struct fields)); $$->fields->field=NULL; $$->fields->next=NULL; $$->fields->last=$$->fields;}
     |
-    fields field {$$=new_node; $$->type_ok=1; $$->type=C_FIELDS; $$->fields->last->next = malloc(sizeof(struct fields)); $$->fields->last=$$->fields->last->next; $$->fields->last->field=$2; $$->fields->last->next=NULL;};
+    fields field {$$=$1; $$->fields->last->next = malloc(sizeof(struct fields)); $$->fields->last=$$->fields->last->next; $$->fields->last->field=$2; $$->fields->last->next=NULL;};
 
 extendclause :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_EXTEND; $$->extend = malloc(sizeof(struct extend)); $$->extend->id = NULL;}
@@ -229,7 +229,7 @@ extendclause :
 identifierss :
     TIDENT {$1->type_ok=1; $1->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_IDENT_WITH_COMMA; $$->id_with_comma = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->id = $1; $$->id_with_comma->next=NULL; $$->id_with_comma->last=$$->id_with_comma;}
     |
-    identifierss TPCOMMA TIDENT {$3->type_ok=1; $3->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_IDENT_WITH_COMMA; $$->id_with_comma->last->next = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->last=$$->id_with_comma->last->next; $$->id_with_comma->last->id = $3; $$->id_with_comma->last->next=NULL;};
+    identifierss TPCOMMA TIDENT {$3->type_ok=1; $3->type=C_IDENT; free($$); $$=$1; $$->id_with_comma->last->next = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->last=$$->id_with_comma->last->next; $$->id_with_comma->last->id = $3; $$->id_with_comma->last->next=NULL;};
     
 implementclause :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_IMPLEMENT; $$->implement = malloc(sizeof(struct implement)); $$->implement->id_with_comma = NULL;}
@@ -247,7 +247,7 @@ protype :
 protypes : 
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_PROTYPES; $$->protypes = malloc(sizeof(struct protypes)); $$->protypes->protype=NULL; $$->protypes->next=NULL; $$->protypes->last=$$->protypes;}
     |
-    protypes protype {$$=new_node; $$->type_ok=1; $$->type=C_PROTYPES; $$->protypes->last->next = malloc(sizeof(struct protypes)); $$->protypes->last=$$->protypes->last->next; $$->protypes->last->protype=$2; $$->protypes->last->next=NULL;};
+    protypes protype {$$=$1; $$->protypes->last->next = malloc(sizeof(struct protypes)); $$->protypes->last=$$->protypes->last->next; $$->protypes->last->protype=$2; $$->protypes->last->next=NULL;};
 
 interfacedefine :
     TKINTERFACE TIDENT TPLBB protypes TPRBB {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_INTERFACEDEFINE; $$->interfacedefine = malloc(sizeof(struct interfacedefine)); $$->interfacedefine->id=$2; $$->interfacedefine->protypes=$4;};
@@ -278,6 +278,9 @@ int main(int argc, char **argv)
     else
     {
         printf("Usage %s [FILE]\n", argv[0]);
+        yyin=fopen("hehe.decaf","r");
+        yydebug=1;
+        yyparse();
     }
     return 0;
 }
