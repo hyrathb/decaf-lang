@@ -117,6 +117,7 @@ struct var
 
 struct vardefine
 {
+    enum decaf_type define_type;
     struct semantics *var;
 };
 
@@ -394,5 +395,44 @@ struct semantics
         struct program *program;
     };
 };
+
+#define printit(sem) void print_##sem(int indent, struct semantics *s)
+
+printit(ident);
+printit(const);
+printit(null);
+printit(tformals);
+printit(formals);
+printit(type);
+printit(var);
+printit(vardefine);
+printit(vardefines);
+printit(expr_with_comma);
+printit(actuals);
+printit(call);
+printit(lvalue);
+printit(expr);
+printit(ifstm);
+printit(whilestm);
+printit(forstm);
+printit(retstm);
+printit(breakstm);
+printit(printstm);
+printit(expr_or_not);
+printit(stm);
+printit(stms);
+printit(stmblock);
+printit(funcdefine);
+printit(field);
+printit(fields);
+printit(extend);
+printit(ident_with_comma);
+printit(implement);
+printit(classdefine);
+printit(protype);
+printit(protypes);
+printit(interfacedefine);
+printit(define);
+printit(program);
 
 #endif
