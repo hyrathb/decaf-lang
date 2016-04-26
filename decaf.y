@@ -25,8 +25,10 @@
 %left TOPLUS TOMINUS
 %left TOMUL TODIV TOIDIV
 %right TONOT
-%right TOLSB TORSB
-%right TOLB TORB
+%left TORSB
+%right TOLSB
+%left TORB
+%right TOLB
 
 %start program
 
@@ -180,7 +182,7 @@ printstmt :
 stmt :
     TPSEP {$$=new_node; $$->type_ok=1; $$->type=C_STM; $$->stm = malloc(sizeof(struct stm)); $$->stm->stm_type=STM_EMPTY; $$->stm->s_stm=NULL;}
     |
-    expr TPSEP {$$=new_node; $$->type_ok=1; $$->type=C_STM; $$->stm = malloc(sizeof(struct stm)); $$->stm->stm_type=STM_EXPR; $$->stm->s_stm=$1;}
+    expr TPSEP {$$=new_node; $$->type_ok=1; $$->type=C_STM; $$->stm = malloc(sizeof(struct stm)); $$->stm->stm_type=STM_EXPR; $$->stm->expr=$1;}
     |
     ifstmt {$$=new_node; $$->type_ok=1; $$->type=C_STM; $$->stm = malloc(sizeof(struct stm)); $$->stm->stm_type=STM_IF; $$->stm->s_stm=$1;}
     |

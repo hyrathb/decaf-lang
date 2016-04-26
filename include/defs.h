@@ -243,7 +243,12 @@ struct stm
         STM_PRINT,
         STM_BLOCK
     } stm_type;
-    struct semantics *s_stm;
+    union
+    {
+        struct semantics *expr;
+        struct semantics *s_stm;
+        struct semantics *stmblock;
+    };
 };
 
 struct stms

@@ -57,10 +57,13 @@ printit(null)
 printit(formals)
 {
     struct tformals *i;
-    ind;
     if (s->formals->tformals)
+    {
+        printf("formals:\n");
+        ind;
         for (i=s->formals->tformals->tformals; i; i=i->next)
-            print_var(indent, i->var);
+            print_var(indent+2, i->var);
+    }
 }
 
 printit(type)
@@ -96,7 +99,8 @@ printit(type)
 
 printit(var)
 {
-    ind;
+    if (!s)
+        return;
     print_type(indent, s->var->type);
     print_ident(indent, s->var->id);
 }
@@ -120,7 +124,6 @@ printit(vardefines)
 printit(expr_with_comma)
 {
     struct expr_with_comma *i;
-    ind;
     for (i=s->expr_with_comma; i; i=i->next)
         print_expr(indent+2, i->expr);
 }
@@ -285,5 +288,254 @@ printit(expr)
         print_expr(indent+2, s->expr->expr1);
         print_type(indent+2, s->expr->id);
         break;
+    }
+}
+
+printit(ifstm)
+{
+    ind;
+    printf("if statement:\n");
+    print_expr(indent+2, s->if_stm->expr);
+    printf("then:\n");
+    print_stm(indent+2, s->if_stm->stm1);
+    printf("else:\n");
+    print_stm(indent+2, s->if_stm->stm2);
+}
+
+printit(whilestm)
+{
+    ind;
+    printf("while statement:\n");
+    print_expr(indent+2, s->whilestm->expr);
+    print_stm(indent+2, s->whilestm->stm);
+}
+
+printit(forstm)
+{
+    ind;
+    printf("for statement:\n");
+    printf("INIT:\n");
+    print_expr_or_not(indent+2, s->forstm->expr_or_not1);
+    printf("COND:\n");
+    print_expr(indent+2, s->forstm->expr);
+    printf("ACC:\n");
+    print_expr_or_not(indent+2, s->forstm->expr_or_not2);
+}
+
+printit(retstm)
+{
+    ind;
+    printf("return statement:\n");
+    print_expr_or_not(indent+2, s->returnstm->expr_or_not);
+}
+
+printit(breakstm)
+{
+    ind;
+    printf("break statement\n");
+}
+
+printit(printstm)
+{
+    ind;
+    printf("print statement:\n");
+    print_expr(indent+2, s->printstm->expr);
+}
+
+printit(expr_or_not)
+{
+    print_expr(indent, s->expr_or_not->expr);
+}
+
+printit(stm)
+{
+    switch (s->stm->stm_type)
+    {
+    case STM_EMPTY:
+        break;
+    case STM_EXPR:
+        ind;
+        printf("expr statement:\n");
+        print_expr(indent+2, s->stm->expr);
+        break;
+    case STM_IF:
+        print_ifstm(indent, s->stm->s_stm);
+        break;
+    case STM_WHILE:
+        print_whilestm(indent, s->stm->s_stm);
+        break;
+    case STM_FOR:
+        print_forstm(indent, s->stm->s_stm);
+        break;
+    case STM_BREAK:
+        print_breakstm(indent, s->stm->s_stm);
+        break;
+    case STM_RET:
+        print_retstm(indent, s->stm->s_stm);
+        break;
+    case STM_PRINT:
+        print_printstm(indent, s->stm->s_stm);
+        break;
+    case STM_BLOCK:
+        print_stmblock(indent, s->stm->stmblock);
+        break;
+    }
+}
+
+printit(stms)
+{
+    struct stms *i;
+    for (i=s->stms; i; i=i->next)
+    {
+        print_stm(indent, i->stm);
+    }
+}
+
+printit(stmblock)
+{
+    ind;
+    printf("statement block:\n");
+    print_vardefines(indent+2, s->stmblock->vardefines);
+    print_stms(indent+2, s->stmblock->stms);
+}
+
+printit(funcdefine)
+{
+    ind;
+    if (s->funcdefine->is_void)
+    {
+        printf("void function define:\n");
+        print_ident(indent+2, s->funcdefine->id);
+        print_formals(indent+2, s->funcdefine->formals);
+        print_stmblock(indent+2, s->funcdefine->stmblock);   
+    }
+    else
+    {
+        printf("function define:\n");
+        print_type(indent+2, s->funcdefine->type);
+        print_ident(indent+2, s->funcdefine->id);
+        print_formals(indent+2, s->funcdefine->formals);
+        print_stmblock(indent+2, s->funcdefine->stmblock);
+    }
+}
+
+printit(field)
+{
+    if (!s)
+        return;
+    //printf("class field:\n");
+    if (s->field->is_vardefine)
+    {
+        print_vardefine(indent, s->field->vardefine);
+    }
+    else
+    {
+        print_funcdefine(indent, s->field->funcdefine);
+    }
+}
+
+printit(fields)
+{
+    struct fields *i;
+    for (i=s->fields; i; i=i->next)
+    {
+        print_field(indent, i->field);
+    }
+}
+
+printit(extend)
+{
+    ind;
+    printf("class extends:\n");
+    print_ident(indent+2, s->extend->id);
+}
+
+printit(id_with_comma)
+{
+    struct id_with_comma *i;
+    for (i=s->id_with_comma; i; i=i->next)
+    {
+        print_ident(indent, i->id);
+    }
+}
+
+printit(implement)
+{
+    ind;
+    printf("class implements protypes:/n");
+    print_id_with_comma(indent+2 ,s->implement->id_with_comma);
+}
+
+printit(classdefine)
+{
+    ind;
+    printf("class define:\n");
+    print_ident(indent+2, s->classdefine->id);
+    print_extend(indent+2, s->classdefine->extend);
+    print_implement(indent+2, s->classdefine->implement);
+    print_fields(indent+2, s->classdefine->fields);
+}
+
+printit(protype)
+{
+    ind;
+    if (s->protype->is_void)
+    {
+        printf("void protype:\n");
+        print_ident(indent+2, s->protype->id);
+        print_formals(indent+2, s->protype->formals);
+    }
+    else
+    {
+        printf("protype:\n");
+        print_type(indent+2, s->protype->type);
+        print_ident(indent+2, s->protype->id);
+        print_formals(indent+2, s->protype->formals);
+    }
+    
+}
+
+printit(protypes)
+{
+    struct protypes *i;
+    for (i=s->protypes; i; i=i->next)
+    {
+        print_protype(indent, i->protype);
+    }
+}
+
+printit(interfacedefine)
+{
+    ind;
+    printf("interface define:\n");
+    print_ident(indent+2, s->interfacedefine->id);
+    print_protypes(indent+2, s->interfacedefine->protypes);
+}
+
+printit(define)
+{
+    switch (s->define->define_type)
+    {
+    case DEFINE_VAR:
+        print_vardefine(indent, s->define->s_define);
+        break;
+    case DEFINE_FUNC:
+        print_funcdefine(indent, s->define->s_define);
+        break;
+    case DEFINE_CLASS:
+        print_classdefine(indent, s->define->s_define);
+        break;
+    case DEFINE_INTERFACE:
+        print_interfacedefine(indent, s->define->s_define);
+        break;
+    }
+}
+
+printit(program)
+{
+    struct program *i;
+    for (i=s->program; i; i=i->next)
+    {
+        print_define(indent, i->define);
     }
 }
