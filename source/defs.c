@@ -6,10 +6,10 @@ void printindent(int indent)
 {
     int i;
     for (i=0; i<indent; ++i)
-    {
+    {/*
         if (indent-i <= 2)
             putchar('-');
-        else 
+        else */
             putchar(' ');
     }
 }
@@ -396,11 +396,12 @@ printit(stm)
 
 printit(stms)
 {
-    in;
+    ind;
+    printf("statement section:\n");
     struct stms *i;
     for (i=s->stms; i; i=i->next)
     {
-        print_stm(indent, i->stm);
+        print_stm(indent+2, i->stm);
     }
 }
 
@@ -549,10 +550,11 @@ printit(define)
 
 printit(program)
 {
-    in;
+    ind;
+    printf("PROGRAM:\n");
     struct program *i;
     for (i=s->program; i; i=i->next)
     {
-        print_define(indent, i->define);
+        print_define(indent+2, i->define);
     }
 }
