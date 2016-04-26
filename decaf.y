@@ -7,6 +7,7 @@
   
   #define new_node (malloc(sizeof(struct semantics)))
   
+  struct semantics*head;
   int yylex (void);
   void yyerror (char const *, ...);
   extern int yylineno;
@@ -68,12 +69,12 @@ type :
     | 
     TKSTRING {$$=new_node; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 1; $$->vtype->is_array=0; $$->vtype->btype = D_STRING;}
     | 
-    TIDENT {$1->type_ok=1; $1->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->is_array=0; $$->vtype->id = $1;}
+    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->is_array=0; $$->vtype->id = $1;}
     | 
     type TOLSB TORSB {$$=new_node; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->is_array=0; $$->vtype->arr_type = $1;};
 
 var :
-    type TIDENT {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_VAR; $$->var = malloc(sizeof (struct var)); $$->var->type = $1; $$->var->id=$2;}; /*NEED TO CHECK TYPEOK*/
+    type TIDENT {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_VAR; $$->var = malloc(sizeof (struct var)); $$->var->type = $1; $$->var->id=$2;}; /*NEED TO CHECK TYPEOK*/
 
 vardefine :
     var TPSEP {$$=new_node; $$->type_ok=1; $$->type=C_VARDEFINE; $$->vardefine = malloc(sizeof (struct vardefine)); $$->vardefine->var = $1;};
@@ -89,14 +90,14 @@ actuals :
     exprss {$$=new_node; $$->type_ok=1; $$->type=C_ACTUALS; $$->actuals=malloc(sizeof(struct actuals)); $$->actuals->expr_with_comma = $1;} ;
     
 call :
-    TIDENT TOLB actuals TORB {$1->type_ok=1; $1->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=0; $$->call->expr = NULL; $$->call->id = NULL; $$->call->actuals=$3;}
+    TIDENT TOLB actuals TORB {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=0; $$->call->expr = NULL; $$->call->id = $1; $$->call->actuals=$3;}
     |
-    expr TPPOINT TIDENT TOLB actuals TORB {$3->type_ok=1; $3->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=1; $$->call->expr = $1; $$->call->id = $3; $$->call->actuals=$5;};
+    expr TPPOINT TIDENT TOLB actuals TORB {$$=new_node; $3->type_ok=1; $3->type=C_IDENT;  $$->type_ok=1; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=1; $$->call->expr = $1; $$->call->id = $3; $$->call->actuals=$5;};
 
 lvalue :
-    TIDENT {$1->type_ok=1; $1->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_IDENT; $$->lvalue->id = $1; $$->lvalue->expr1 = NULL; $$->lvalue->expr2=NULL;}
+    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_IDENT; $$->lvalue->id = $1; $$->lvalue->expr1 = NULL; $$->lvalue->expr2=NULL;}
     |
-    expr TPPOINT TIDENT {$3->type_ok=1; $3->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_MEMBER; $$->lvalue->id = $3; $$->lvalue->expr1 = $1; $$->lvalue->expr2=NULL;}
+    expr TPPOINT TIDENT {$$=new_node; $3->type_ok=1; $3->type=C_IDENT; $$->type_ok=1; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_MEMBER; $$->lvalue->id = $3; $$->lvalue->expr1 = $1; $$->lvalue->expr2=NULL;}
     |
     expr TOLSB expr TORSB {$$=new_node; $$->type_ok=1; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_ARRAY; $$->lvalue->id = NULL; $$->lvalue->expr1 = $1; $$->lvalue->expr2=$3;};
     
@@ -115,7 +116,7 @@ expr :               /*NEED TO CHECK TYPE*/
     |
     expr TOPLUS expr {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_PLUS; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
-    expr TOMINUS expr {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_ASSIGN; $$->expr->constant= NULL; $$->expr->lvalue=$1; $$->expr->expr1=$3; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
+    expr TOMINUS expr {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_MINUS; $$->expr->constant= NULL; $$->expr->lvalue=$1; $$->expr->expr1=$3; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
     expr TOMUL expr {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_MINUS; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
@@ -145,7 +146,7 @@ expr :               /*NEED TO CHECK TYPE*/
     |
     TKREADLINE TOLB TORB {$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_READLINE; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
-    TKNEW TOLB TIDENT TORB {$3->type_ok=1; $3->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_NEW; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=$3; $$->expr->type=NULL;}
+    TKNEW TOLB TIDENT TORB {$$=new_node; $3->type_ok=1; $3->type=C_IDENT; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_NEW; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=NULL; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=$3; $$->expr->type=NULL;}
     |
     TKNEWARRAY TOLB expr TPCOMMA type TORB{$$=new_node; $$->type_ok=1; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_NEWARRAY; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$3; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=$5;} ;
     
@@ -207,9 +208,9 @@ stmtblock :
     TPLBB vardefines stmts TPRBB {$$=new_node; $$->type_ok=1; $$->type=C_STMBLOCK; $$->stmblock = malloc(sizeof(struct stmblock)); $$->stmblock->vardefines=$2; $$->stmblock->stms=$3;};
     
 funcdefine :
-    type TIDENT TOLB formals TORB stmtblock {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_FUNCDEFINE; $$->funcdefine = malloc(sizeof(struct funcdefine)); $$->funcdefine->is_void=0; $$->funcdefine->type=$1; $$->funcdefine->id=$2; $$->funcdefine->formals=$4; $$->funcdefine->stmblock=$6;}
+    type TIDENT TOLB formals TORB stmtblock {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_FUNCDEFINE; $$->funcdefine = malloc(sizeof(struct funcdefine)); $$->funcdefine->is_void=0; $$->funcdefine->type=$1; $$->funcdefine->id=$2; $$->funcdefine->formals=$4; $$->funcdefine->stmblock=$6;}
     |
-    TKVOID TIDENT TOLB formals TORB stmtblock {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_FUNCDEFINE; $$->funcdefine = malloc(sizeof(struct funcdefine)); $$->funcdefine->is_void=1; $$->funcdefine->type=NULL; $$->funcdefine->id=$2; $$->funcdefine->formals=$4; $$->funcdefine->stmblock=$6;};
+    TKVOID TIDENT TOLB formals TORB stmtblock {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_FUNCDEFINE; $$->funcdefine = malloc(sizeof(struct funcdefine)); $$->funcdefine->is_void=1; $$->funcdefine->type=NULL; $$->funcdefine->id=$2; $$->funcdefine->formals=$4; $$->funcdefine->stmblock=$6;};
 
 field :
     vardefine {$$=new_node; $$->type_ok=1; $$->type=C_FIELD; $$->field = malloc(sizeof(struct field)); $$->field->is_vardefine=1; $$->field->vardefine=$1;}
@@ -224,10 +225,10 @@ fields :
 extendclause :
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_EXTEND; $$->extend = malloc(sizeof(struct extend)); $$->extend->id = NULL;}
     |
-    TKEXTENDS TIDENT {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_EXTEND; $$->extend = malloc(sizeof(struct extend)); $$->extend->id = $2;};
+    TKEXTENDS TIDENT {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_EXTEND; $$->extend = malloc(sizeof(struct extend)); $$->extend->id = $2;};
 
 identifierss :
-    TIDENT {$1->type_ok=1; $1->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_IDENT_WITH_COMMA; $$->id_with_comma = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->id = $1; $$->id_with_comma->next=NULL; $$->id_with_comma->last=$$->id_with_comma;}
+    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_IDENT_WITH_COMMA; $$->id_with_comma = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->id = $1; $$->id_with_comma->next=NULL; $$->id_with_comma->last=$$->id_with_comma;}
     |
     identifierss TPCOMMA TIDENT {$3->type_ok=1; $3->type=C_IDENT; free($$); $$=$1; $$->id_with_comma->last->next = malloc(sizeof(struct id_with_comma)); $$->id_with_comma->last=$$->id_with_comma->last->next; $$->id_with_comma->last->id = $3; $$->id_with_comma->last->next=NULL;};
     
@@ -237,12 +238,12 @@ implementclause :
     TKIMPLEMENTS identifierss {$$=new_node; $$->type_ok=1; $$->type=C_IMPLEMENT; $$->implement = malloc(sizeof(struct implement)); $$->implement->id_with_comma = $2;};
     
 classdefine :
-    TKCLASS TIDENT extendclause implementclause TPLBB fields TPRBB {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_CLASSDEFINE; $$->classdefine = malloc(sizeof(struct classdefine)); $$->classdefine->id = $2; $$->classdefine->extend = $3; $$->classdefine->implement = $4; $$->classdefine->fields = $6;};
+    TKCLASS TIDENT extendclause implementclause TPLBB fields TPRBB {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_CLASSDEFINE; $$->classdefine = malloc(sizeof(struct classdefine)); $$->classdefine->id = $2; $$->classdefine->extend = $3; $$->classdefine->implement = $4; $$->classdefine->fields = $6;};
 
 protype :
-    type TIDENT TOLB formals TORB TPSEP {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_PROTYPE; $$->protype = malloc(sizeof(struct protype)); $$->protype->is_void = 0; $$->protype->type = $1; $$->protype->id = $2; $$->protype->formals = $4;}
+    type TIDENT TOLB formals TORB TPSEP {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_PROTYPE; $$->protype = malloc(sizeof(struct protype)); $$->protype->is_void = 0; $$->protype->type = $1; $$->protype->id = $2; $$->protype->formals = $4;}
     |
-    TKVOID TIDENT TOLB formals TORB TPSEP {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_PROTYPE; $$->protype = malloc(sizeof(struct protype)); $$->protype->is_void = 1; $$->protype->type = NULL; $$->protype->id = $2; $$->protype->formals = $4;};
+    TKVOID TIDENT TOLB formals TORB TPSEP {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_PROTYPE; $$->protype = malloc(sizeof(struct protype)); $$->protype->is_void = 1; $$->protype->type = NULL; $$->protype->id = $2; $$->protype->formals = $4;};
     
 protypes : 
     %empty {$$=new_node; $$->type_ok=1; $$->type=C_PROTYPES; $$->protypes = malloc(sizeof(struct protypes)); $$->protypes->protype=NULL; $$->protypes->next=NULL; $$->protypes->last=$$->protypes;}
@@ -250,7 +251,7 @@ protypes :
     protypes protype {$$=$1; $$->protypes->last->next = malloc(sizeof(struct protypes)); $$->protypes->last=$$->protypes->last->next; $$->protypes->last->protype=$2; $$->protypes->last->next=NULL;};
 
 interfacedefine :
-    TKINTERFACE TIDENT TPLBB protypes TPRBB {$2->type_ok=1; $2->type=C_IDENT; $$=new_node; $$->type_ok=1; $$->type=C_INTERFACEDEFINE; $$->interfacedefine = malloc(sizeof(struct interfacedefine)); $$->interfacedefine->id=$2; $$->interfacedefine->protypes=$4;};
+    TKINTERFACE TIDENT TPLBB protypes TPRBB {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_INTERFACEDEFINE; $$->interfacedefine = malloc(sizeof(struct interfacedefine)); $$->interfacedefine->id=$2; $$->interfacedefine->protypes=$4;};
 
 define :
     vardefine {$$=new_node; $$->type_ok=1; $$->type=C_DEFINE; $$->define = malloc(sizeof(struct define)); $$->define->define_type=DEFINE_VAR; $$->define->s_define=$1;}
@@ -262,7 +263,7 @@ define :
     interfacedefine {$$=new_node; $$->type_ok=1; $$->type=C_DEFINE; $$->define = malloc(sizeof(struct define)); $$->define->define_type=DEFINE_INTERFACE; $$->define->s_define=$1;};
 
 program :
-    define {$$=new_node; $$->type_ok=1; $$->type=C_PROGRAM; $$->program = malloc(sizeof(struct program)); $$->program->define= $1; $$->program->next=NULL; $$->program->last=$$->program;}
+    define {$$=new_node; $$->type_ok=1; $$->type=C_PROGRAM; $$->program = malloc(sizeof(struct program)); $$->program->define= $1; $$->program->next=NULL; $$->program->last=$$->program; head=$$;}
      | 
      program define {$$=$1; $$->type_ok=1; $$->type=C_PROGRAM; $$->program->last->next = malloc(sizeof(struct program)); $$->program->last=$$->program->last->next; $$->program->last->define= $2; $$->program->last->next=NULL;};
 
@@ -274,6 +275,7 @@ int main(int argc, char **argv)
         yyin=fopen(argv[1],"r");
         yydebug=1;
         yyparse();
+        print_program(0, head);
     }
     else
     {
@@ -281,6 +283,7 @@ int main(int argc, char **argv)
         yyin=fopen("hehe.decaf","r");
         yydebug=1;
         yyparse();
+        print_program(0, head);
     }
     return 0;
 }

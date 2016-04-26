@@ -7,9 +7,7 @@ void printindent(int indent)
     int i;
     for (i=0; i<indent; ++i)
     {
-        if (i%2)
-            putchar('|');
-        else if (i == indent-1)
+        if (indent-i <= 2)
             putchar('-');
         else 
             putchar(' ');
@@ -20,6 +18,9 @@ void printindent(int indent)
                 return;\
               printindent(indent);
 
+#define in  if (!s)\
+              return;
+              
 printit(ident)
 {
     ind;
@@ -56,11 +57,11 @@ printit(null)
 
 printit(formals)
 {
+    ind;
+    printf("formals:\n");
     struct tformals *i;
     if (s->formals->tformals)
     {
-        printf("formals:\n");
-        ind;
         for (i=s->formals->tformals->tformals; i; i=i->next)
             print_var(indent+2, i->var);
     }
@@ -75,12 +76,16 @@ printit(type)
         {
         case D_INT:
             printf("type: int\n");
+            break;
         case D_BOOL:
             printf("type: bool\n");
+            break;
         case D_DOUBLE:
             printf("type: double\n");
+            break;
         case D_STRING:
             printf("type: string\n");
+            break;
         default:
             return;
         }
@@ -99,8 +104,7 @@ printit(type)
 
 printit(var)
 {
-    if (!s)
-        return;
+    in;
     print_type(indent, s->var->type);
     print_ident(indent, s->var->id);
 }
@@ -123,6 +127,7 @@ printit(vardefines)
 
 printit(expr_with_comma)
 {
+    in;
     struct expr_with_comma *i;
     for (i=s->expr_with_comma; i; i=i->next)
         print_expr(indent+2, i->expr);
@@ -140,14 +145,14 @@ printit(call)
     ind;
     if (s->call->is_member)
     {
-        printf("member function call:");
+        printf("member function call:\n");
         print_expr(indent+2, s->call->expr);
         print_ident(indent+2, s->call->id);
         print_actuals(indent+2, s->call->actuals);
     }
     else
     {
-        printf("function call:");
+        printf("function call:\n");
         print_ident(indent+2, s->call->id);
         print_actuals(indent+2, s->call->actuals);
     }
@@ -296,8 +301,10 @@ printit(ifstm)
     ind;
     printf("if statement:\n");
     print_expr(indent+2, s->if_stm->expr);
+    ind;
     printf("then:\n");
     print_stm(indent+2, s->if_stm->stm1);
+    ind;
     printf("else:\n");
     print_stm(indent+2, s->if_stm->stm2);
 }
@@ -314,10 +321,13 @@ printit(forstm)
 {
     ind;
     printf("for statement:\n");
+    ind;
     printf("INIT:\n");
     print_expr_or_not(indent+2, s->forstm->expr_or_not1);
+    ind;
     printf("COND:\n");
     print_expr(indent+2, s->forstm->expr);
+    ind;
     printf("ACC:\n");
     print_expr_or_not(indent+2, s->forstm->expr_or_not2);
 }
@@ -344,11 +354,13 @@ printit(printstm)
 
 printit(expr_or_not)
 {
+    in;
     print_expr(indent, s->expr_or_not->expr);
 }
 
 printit(stm)
 {
+    in;
     switch (s->stm->stm_type)
     {
     case STM_EMPTY:
@@ -384,6 +396,7 @@ printit(stm)
 
 printit(stms)
 {
+    in;
     struct stms *i;
     for (i=s->stms; i; i=i->next)
     {
@@ -421,8 +434,7 @@ printit(funcdefine)
 
 printit(field)
 {
-    if (!s)
-        return;
+    in;
     //printf("class field:\n");
     if (s->field->is_vardefine)
     {
@@ -436,6 +448,7 @@ printit(field)
 
 printit(fields)
 {
+    in;
     struct fields *i;
     for (i=s->fields; i; i=i->next)
     {
@@ -452,6 +465,7 @@ printit(extend)
 
 printit(id_with_comma)
 {
+    in;
     struct id_with_comma *i;
     for (i=s->id_with_comma; i; i=i->next)
     {
@@ -462,7 +476,7 @@ printit(id_with_comma)
 printit(implement)
 {
     ind;
-    printf("class implements protypes:/n");
+    printf("class implements protypes:\n");
     print_id_with_comma(indent+2 ,s->implement->id_with_comma);
 }
 
@@ -497,6 +511,7 @@ printit(protype)
 
 printit(protypes)
 {
+    in;
     struct protypes *i;
     for (i=s->protypes; i; i=i->next)
     {
@@ -514,6 +529,7 @@ printit(interfacedefine)
 
 printit(define)
 {
+    in;
     switch (s->define->define_type)
     {
     case DEFINE_VAR:
@@ -533,6 +549,7 @@ printit(define)
 
 printit(program)
 {
+    in;
     struct program *i;
     for (i=s->program; i; i=i->next)
     {
