@@ -36,7 +36,7 @@
 constant:
     TINTCONST{$$.text=NULL; $$.type_ok=1; $$.type = C_ICONST; $$.i_val=strtol($1.text, NULL, 0); free($1.text);} 
     | 
-    TDOUBLECONST {$$.text=NULL; $$.type_ok=1; $$.type = C_DCONST; $$.i_val=atof($1.text); free($1.text);}
+    TDOUBLECONST {$$.text=NULL; $$.type_ok=1; $$.type = C_DCONST; $$.d_val=atof($1.text); free($1.text);}
     | 
     TBOOLCONST {$$.text=NULL; $$.type_ok=1; $$.type = C_ICONST; $$.i_val= !strcmp($1.text, "true"); free($1.text);}
     | 
@@ -80,7 +80,7 @@ lvalue :
     |
     expr TPPOINT TIDENT
     |
-    expr TOLSB expr TOLSB;
+    expr TOLSB expr TORSB;
     
 expr :
     lvalue TOASSIGN expr
