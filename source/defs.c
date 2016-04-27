@@ -10,6 +10,37 @@
 #define PUTCHAR(c)
 #endif
 
+static struct symhash *roothash=NULL;
+static struct symres root={&roothash, NULL};
+static struct symres *current=&root;
+
+int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
+{
+    struct symhash *tmp;
+    HASH_FIND_STR( *(table->table), i, tmp);
+    if (tmp)
+        return -1;
+    struct symhash *n=malloc(sizeof(struct symhash));
+    n->name = i;
+    n->type = t;
+    n->define = d;
+    HASH_ADD_KEYPTR( hh, *(table->table), n->name, strlen(n->name), n);
+    return 0;
+}
+
+struct symhash *sym_get(struct symres *table, const char *i)
+{
+    struct symhash *n;
+    while (table)
+    {
+        HASH_FIND_STR( *(table->table), i, n);
+        if (n)
+            return n;
+        table = table->parent;
+    }
+    return NULL;
+}
+
 void printindent(int indent)
 {
     int i;
@@ -29,10 +60,44 @@ void printindent(int indent)
 #define in  if (!s)\
               return;
               
-parseit(ident)
+void parse_ident(int indent, struct semantics *s, int type)
 {
     ind;
-    PRINT("identifier: %s\n", s->text);
+    if (type)
+    {
+        struct symhash *r = sym_get(current, s->text);
+        if (r)
+            switch(r->type)
+            {
+            case D_INT:
+                PRINT("identifier: %s, type: int\n", s->text);
+                break;
+            case D_BOOL:
+                PRINT("identifier: %s, type: bool\n", s->text);
+                break;
+            case D_DOUBLE:
+                PRINT("identifier: %s, type: double\n", s->text);
+                break;
+            case D_STRING:
+                PRINT("identifier: %s, type: string\n", s->text);
+                break;
+            case D_CLASS:
+                PRINT("identifier: %s, type: class\n", s->text);
+                break;
+            case D_FUNCTION:
+                PRINT("identifier: %s, type: function\n", s->text);
+                break;
+            case D_TYPE:
+                PRINT("identifier: %s, type: class type\n", s->text);
+                break;
+            default:
+                PRINT("identifier: %s\n", s->text);
+            }
+        else
+            PRINT("identifier: %s\n", s->text);
+    }
+    else
+        PRINT("identifier: %s\n", s->text);
 }
 
 parseit(const)
@@ -106,7 +171,7 @@ parseit(type)
     else
     {
         PRINT("type: class\n");
-        parse_ident(indent+2, s->vtype->id);
+        parse_ident(indent+2, s->vtype->id, 0);
     }
 }
 
@@ -114,7 +179,8 @@ parseit(var)
 {
     in;
     parse_type(indent, s->var->type);
-    parse_ident(indent, s->var->id);
+    parse_ident(indent, s->var->id, 0);
+    sym_add(current, s->var->id->text, s->var->type->vtype->btype, 0);
 }
 
 parseit(vardefine)
@@ -155,13 +221,13 @@ parseit(call)
     {
         PRINT("member function call:\n");
         parse_expr(indent+2, s->call->expr);
-        parse_ident(indent+2, s->call->id);
+        parse_ident(indent+2, s->call->id, 1);
         parse_actuals(indent+2, s->call->actuals);
     }
     else
     {
         PRINT("function call:\n");
-        parse_ident(indent+2, s->call->id);
+        parse_ident(indent+2, s->call->id, 1);
         parse_actuals(indent+2, s->call->actuals);
     }
 }
@@ -173,12 +239,12 @@ parseit(lvalue)
     {
     case LVAL_IDENT:
         PRINT("identifier as lvalue: \n");
-        parse_ident(indent+2, s->lvalue->id);
+        parse_ident(indent+2, s->lvalue->id, 1);
         break;
     case LVAL_MEMBER:
         PRINT("member as lvalue: \n");
         parse_expr(indent+2, s->lvalue->expr1);
-        parse_ident(indent+2, s->lvalue->id);
+        parse_ident(indent+2, s->lvalue->id, 1);
         break;
     case LVAL_ARRAY:
         PRINT("array elem as lvalue: \n");
@@ -294,7 +360,7 @@ parseit(expr)
         break;
     case EXPR_NEW:
         PRINT("new expr:\n");
-        parse_ident(indent+2, s->expr->id);
+        parse_ident(indent+2, s->expr->id, 1);
         break;
     case EXPR_NEWARRAY:
         PRINT("newarray expr:\n");
@@ -427,7 +493,8 @@ parseit(funcdefine)
     if (s->funcdefine->is_void)
     {
         PRINT("void function define:\n");
-        parse_ident(indent+2, s->funcdefine->id);
+        parse_ident(indent+2, s->funcdefine->id, 0);
+        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
         parse_formals(indent+2, s->funcdefine->formals);
         parse_stmblock(indent+2, s->funcdefine->stmblock);   
     }
@@ -435,7 +502,8 @@ parseit(funcdefine)
     {
         PRINT("function define:\n");
         parse_type(indent+2, s->funcdefine->type);
-        parse_ident(indent+2, s->funcdefine->id);
+        parse_ident(indent+2, s->funcdefine->id, 0);
+        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
         parse_formals(indent+2, s->funcdefine->formals);
         parse_stmblock(indent+2, s->funcdefine->stmblock);
     }
@@ -469,7 +537,7 @@ parseit(extend)
 {
     ind;
     PRINT("class extends:\n");
-    parse_ident(indent+2, s->extend->id);
+    parse_ident(indent+2, s->extend->id, 1);
 }
 
 parseit(id_with_comma)
@@ -478,7 +546,7 @@ parseit(id_with_comma)
     struct id_with_comma *i;
     for (i=s->id_with_comma; i; i=i->next)
     {
-        parse_ident(indent, i->id);
+        parse_ident(indent, i->id, 1);
     }
 }
 
@@ -493,7 +561,8 @@ parseit(classdefine)
 {
     ind;
     PRINT("class define:\n");
-    parse_ident(indent+2, s->classdefine->id);
+    parse_ident(indent+2, s->classdefine->id, 0);
+    sym_add(current, s->classdefine->id->text, D_TYPE, 0);
     parse_extend(indent+2, s->classdefine->extend);
     parse_implement(indent+2, s->classdefine->implement);
     parse_fields(indent+2, s->classdefine->fields);
@@ -505,14 +574,14 @@ parseit(protype)
     if (s->protype->is_void)
     {
         PRINT("void protype:\n");
-        parse_ident(indent+2, s->protype->id);
+        parse_ident(indent+2, s->protype->id, 0);
         parse_formals(indent+2, s->protype->formals);
     }
     else
     {
         PRINT("protype:\n");
         parse_type(indent+2, s->protype->type);
-        parse_ident(indent+2, s->protype->id);
+        parse_ident(indent+2, s->protype->id, 0);
         parse_formals(indent+2, s->protype->formals);
     }
     
@@ -532,7 +601,8 @@ parseit(interfacedefine)
 {
     ind;
     PRINT("interface define:\n");
-    parse_ident(indent+2, s->interfacedefine->id);
+    parse_ident(indent+2, s->interfacedefine->id, 0);
+    sym_add(current, s->interfacedefine->id->text, D_INTERFACE, 0);
     parse_protypes(indent+2, s->interfacedefine->protypes);
 }
 

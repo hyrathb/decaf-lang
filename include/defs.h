@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "hash.h"
+#include "uthash.h"
 
 #define YYSTYPE struct semantics*
 
@@ -14,7 +14,11 @@ enum decaf_type
     D_BOOL,
     D_DOUBLE,
     D_STRING,
-    D_FUNCTION
+    D_ARRAY,
+    D_FUNCTION,
+    D_CLASS,
+    D_INTERFACE,
+    D_TYPE
 };
 
 enum comp_type
@@ -66,9 +70,17 @@ struct semantics;
 struct expr;
 struct stm;
 
+struct symhash
+{
+    const char *name;
+    enum decaf_type type;
+    void *define;
+    UT_hash_handle hh;
+};
+
 struct symres
 {
-    hashtable_t *table;
+    struct symhash **table;
     struct symres *parent;
 };
 
@@ -103,9 +115,9 @@ struct type
 {
     uint8_t is_basic;
     uint8_t is_array;
+    enum decaf_type btype;
     union
     {
-        enum decaf_type btype;
         struct semantics *id;
         struct semantics *arr_type;
     };
@@ -403,9 +415,12 @@ struct semantics
     };
 };
 
+int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d);
+struct symhash *sym_get(struct symres *table, const char *i);
+
 #define parseit(sem) void parse_##sem(int indent, struct semantics *s)
 
-parseit(ident);
+void parse_ident(int indent, struct semantics *s, int type);
 parseit(const);
 parseit(null);
 parseit(tformals);

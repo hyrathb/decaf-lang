@@ -69,9 +69,9 @@ type :
     | 
     TKSTRING {$$=new_node; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 1; $$->vtype->is_array=0; $$->vtype->btype = D_STRING;}
     | 
-    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->is_array=0; $$->vtype->id = $1;}
+    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->btype = D_CLASS; $$->vtype->is_array=0; $$->vtype->id = $1;}
     | 
-    type TOLSB TORSB {$$=new_node; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->is_array=0; $$->vtype->arr_type = $1;};
+    type TOLSB TORSB {$$=new_node; $$->type_ok=1; $$->type=C_TYPE; $$->vtype = malloc(sizeof (struct type)); $$->vtype->is_basic = 0; $$->vtype->is_array=0; $$->vtype->btype = D_ARRAY; $$->vtype->arr_type = $1;};
 
 var :
     type TIDENT {$$=new_node; $2->type_ok=1; $2->type=C_IDENT; $$->type_ok=1; $$->type=C_VAR; $$->var = malloc(sizeof (struct var)); $$->var->type = $1; $$->var->id=$2;}; /*NEED TO CHECK TYPEOK*/
