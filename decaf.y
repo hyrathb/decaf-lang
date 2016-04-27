@@ -277,7 +277,7 @@ int main(int argc, char **argv)
         yydebug=1;
         #endif
         yyparse();
-        print_program(0, head);
+        parse_program(0, head);
         printf("OK\n");
     }
     else
@@ -288,7 +288,7 @@ int main(int argc, char **argv)
         yydebug=1;
         #endif
         yyparse();
-        print_program(0, head);
+        parse_program(0, head);
         printf("OK\n");
     }
     return 0;

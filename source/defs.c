@@ -29,13 +29,13 @@ void printindent(int indent)
 #define in  if (!s)\
               return;
               
-printit(ident)
+parseit(ident)
 {
     ind;
     PRINT("identifier: %s\n", s->text);
 }
 
-printit(const)
+parseit(const)
 {
     ind;
     switch (s->type)
@@ -57,13 +57,13 @@ printit(const)
     }
 }
 
-printit(null)
+parseit(null)
 {
     ind;
     PRINT("NULL\n");
 }
 
-printit(formals)
+parseit(formals)
 {
     ind;
     PRINT("formals:\n");
@@ -71,11 +71,11 @@ printit(formals)
     if (s->formals->tformals)
     {
         for (i=s->formals->tformals->tformals; i; i=i->next)
-            print_var(indent+2, i->var);
+            parse_var(indent+2, i->var);
     }
 }
 
-printit(type)
+parseit(type)
 {
     ind;
     if (s->vtype->is_basic)
@@ -101,190 +101,190 @@ printit(type)
     else if (s->vtype->is_array)
     {
         PRINT("type: array of\n");
-        print_type(indent+2, s->vtype->arr_type);
+        parse_type(indent+2, s->vtype->arr_type);
     }
     else
     {
         PRINT("type: class\n");
-        print_ident(indent+2, s->vtype->id);
+        parse_ident(indent+2, s->vtype->id);
     }
 }
 
-printit(var)
+parseit(var)
 {
     in;
-    print_type(indent, s->var->type);
-    print_ident(indent, s->var->id);
+    parse_type(indent, s->var->type);
+    parse_ident(indent, s->var->id);
 }
 
-printit(vardefine)
+parseit(vardefine)
 {
     ind;
     PRINT("var define:\n");
-    print_var(indent+2, s->vardefine->var);
+    parse_var(indent+2, s->vardefine->var);
 }
 
-printit(vardefines)
+parseit(vardefines)
 {
     struct vardefines *i;
     ind;
     PRINT("var define section:\n");
     for (i=s->vardefines; i; i=i->next)
-        print_vardefine(indent+2, i->vardefine);
+        parse_vardefine(indent+2, i->vardefine);
 }
 
-printit(expr_with_comma)
+parseit(expr_with_comma)
 {
     in;
     struct expr_with_comma *i;
     for (i=s->expr_with_comma; i; i=i->next)
-        print_expr(indent+2, i->expr);
+        parse_expr(indent+2, i->expr);
 }
 
-printit(actuals)
+parseit(actuals)
 {
     ind;
     PRINT("actuals:\n");
-    print_expr_with_comma(indent+2, s->actuals->expr_with_comma);
+    parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
 }
 
-printit(call)
+parseit(call)
 {
     ind;
     if (s->call->is_member)
     {
         PRINT("member function call:\n");
-        print_expr(indent+2, s->call->expr);
-        print_ident(indent+2, s->call->id);
-        print_actuals(indent+2, s->call->actuals);
+        parse_expr(indent+2, s->call->expr);
+        parse_ident(indent+2, s->call->id);
+        parse_actuals(indent+2, s->call->actuals);
     }
     else
     {
         PRINT("function call:\n");
-        print_ident(indent+2, s->call->id);
-        print_actuals(indent+2, s->call->actuals);
+        parse_ident(indent+2, s->call->id);
+        parse_actuals(indent+2, s->call->actuals);
     }
 }
 
-printit(lvalue)
+parseit(lvalue)
 {
     ind;
     switch (s->lvalue->lvalue_type)
     {
     case LVAL_IDENT:
         PRINT("identifier as lvalue: \n");
-        print_ident(indent+2, s->lvalue->id);
+        parse_ident(indent+2, s->lvalue->id);
         break;
     case LVAL_MEMBER:
         PRINT("member as lvalue: \n");
-        print_expr(indent+2, s->lvalue->expr1);
-        print_ident(indent+2, s->lvalue->id);
+        parse_expr(indent+2, s->lvalue->expr1);
+        parse_ident(indent+2, s->lvalue->id);
         break;
     case LVAL_ARRAY:
         PRINT("array elem as lvalue: \n");
-        print_expr(indent+2, s->lvalue->expr1);
-        print_expr(indent+2, s->lvalue->expr2);
+        parse_expr(indent+2, s->lvalue->expr1);
+        parse_expr(indent+2, s->lvalue->expr2);
     }
 }
 
-printit(expr)
+parseit(expr)
 {
     ind;
     switch (s->expr->expr_type)
     {
     case EXPR_ASSIGN:
         PRINT("assign expr:\n");
-        print_lvalue(indent+2, s->expr->lvalue);
-        print_expr(indent+2, s->expr->expr1);
+        parse_lvalue(indent+2, s->expr->lvalue);
+        parse_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_CONST:
         PRINT("const expr:\n");
-        print_const(indent+2, s->expr->constant);
+        parse_const(indent+2, s->expr->constant);
         break;
     case EXPR_LVAL:
         PRINT("lvalue expr:\n");
-        print_lvalue(indent+2, s->expr->lvalue);
+        parse_lvalue(indent+2, s->expr->lvalue);
         break;
     case EXPR_THIS:
         PRINT("this pointer expr:\n");
         break;
     case EXPR_CALL:
         PRINT("function call expr:\n");
-        print_call(indent+2, s->expr->call);
+        parse_call(indent+2, s->expr->call);
         break;
     case EXPR_PRIORITY:
         PRINT("(expr):\n");
-        print_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_PLUS:
         PRINT("+ expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_MINUS:
         PRINT("- expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_MUL:
         PRINT("* expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_DIV:
         PRINT("/ expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_IDIV:
         PUTCHAR('%');
         PRINT(" expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_LT:
         PRINT("< expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_LE:
         PRINT("<= expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_GT:
         PRINT("> expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_GE:
         PRINT(">= expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_EQU:
         PRINT("== expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_NE:
         PRINT("!= expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_AND:
         PRINT("&& expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_OR:
         PRINT("|| expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_expr(indent+2, s->expr->expr2);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_NOT:
         PRINT("! expr:\n");
-        print_expr(indent+2, s->expr->expr1);
+        parse_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_READINTEGER:
         PRINT("read integer expr:\n");
@@ -294,79 +294,79 @@ printit(expr)
         break;
     case EXPR_NEW:
         PRINT("new expr:\n");
-        print_ident(indent+2, s->expr->id);
+        parse_ident(indent+2, s->expr->id);
         break;
     case EXPR_NEWARRAY:
         PRINT("newarray expr:\n");
-        print_expr(indent+2, s->expr->expr1);
-        print_type(indent+2, s->expr->id);
+        parse_expr(indent+2, s->expr->expr1);
+        parse_type(indent+2, s->expr->id);
         break;
     }
 }
 
-printit(ifstm)
+parseit(ifstm)
 {
     ind;
     PRINT("if statement:\n");
-    print_expr(indent+2, s->if_stm->expr);
+    parse_expr(indent+2, s->if_stm->expr);
     ind;
     PRINT("then:\n");
-    print_stm(indent+2, s->if_stm->stm1);
+    parse_stm(indent+2, s->if_stm->stm1);
     ind;
     PRINT("else:\n");
-    print_stm(indent+2, s->if_stm->stm2);
+    parse_stm(indent+2, s->if_stm->stm2);
 }
 
-printit(whilestm)
+parseit(whilestm)
 {
     ind;
     PRINT("while statement:\n");
-    print_expr(indent+2, s->whilestm->expr);
-    print_stm(indent+2, s->whilestm->stm);
+    parse_expr(indent+2, s->whilestm->expr);
+    parse_stm(indent+2, s->whilestm->stm);
 }
 
-printit(forstm)
+parseit(forstm)
 {
     ind;
     PRINT("for statement:\n");
     ind;
     PRINT("INIT:\n");
-    print_expr_or_not(indent+2, s->forstm->expr_or_not1);
+    parse_expr_or_not(indent+2, s->forstm->expr_or_not1);
     ind;
     PRINT("COND:\n");
-    print_expr(indent+2, s->forstm->expr);
+    parse_expr(indent+2, s->forstm->expr);
     ind;
     PRINT("ACC:\n");
-    print_expr_or_not(indent+2, s->forstm->expr_or_not2);
+    parse_expr_or_not(indent+2, s->forstm->expr_or_not2);
 }
 
-printit(retstm)
+parseit(retstm)
 {
     ind;
     PRINT("return statement:\n");
-    print_expr_or_not(indent+2, s->returnstm->expr_or_not);
+    parse_expr_or_not(indent+2, s->returnstm->expr_or_not);
 }
 
-printit(breakstm)
+parseit(breakstm)
 {
     ind;
     PRINT("break statement\n");
 }
 
-printit(printstm)
+parseit(printstm)
 {
     ind;
     PRINT("print statement:\n");
-    print_expr(indent+2, s->printstm->expr);
+    parse_expr(indent+2, s->printstm->expr);
 }
 
-printit(expr_or_not)
+parseit(expr_or_not)
 {
     in;
-    print_expr(indent, s->expr_or_not->expr);
+    parse_expr(indent, s->expr_or_not->expr);
 }
 
-printit(stm)
+parseit(stm)
 {
     in;
     switch (s->stm->stm_type)
@@ -376,193 +376,193 @@ printit(stm)
     case STM_EXPR:
         ind;
         PRINT("expr statement:\n");
-        print_expr(indent+2, s->stm->expr);
+        parse_expr(indent+2, s->stm->expr);
         break;
     case STM_IF:
-        print_ifstm(indent, s->stm->s_stm);
+        parse_ifstm(indent, s->stm->s_stm);
         break;
     case STM_WHILE:
-        print_whilestm(indent, s->stm->s_stm);
+        parse_whilestm(indent, s->stm->s_stm);
         break;
     case STM_FOR:
-        print_forstm(indent, s->stm->s_stm);
+        parse_forstm(indent, s->stm->s_stm);
         break;
     case STM_BREAK:
-        print_breakstm(indent, s->stm->s_stm);
+        parse_breakstm(indent, s->stm->s_stm);
         break;
     case STM_RET:
-        print_retstm(indent, s->stm->s_stm);
+        parse_retstm(indent, s->stm->s_stm);
         break;
     case STM_PRINT:
-        print_printstm(indent, s->stm->s_stm);
+        parse_printstm(indent, s->stm->s_stm);
         break;
     case STM_BLOCK:
-        print_stmblock(indent, s->stm->stmblock);
+        parse_stmblock(indent, s->stm->stmblock);
         break;
     }
 }
 
-printit(stms)
+parseit(stms)
 {
     ind;
     PRINT("statement section:\n");
     struct stms *i;
     for (i=s->stms; i; i=i->next)
     {
-        print_stm(indent+2, i->stm);
+        parse_stm(indent+2, i->stm);
     }
 }
 
-printit(stmblock)
+parseit(stmblock)
 {
     ind;
     PRINT("statement block:\n");
-    print_vardefines(indent+2, s->stmblock->vardefines);
-    print_stms(indent+2, s->stmblock->stms);
+    parse_vardefines(indent+2, s->stmblock->vardefines);
+    parse_stms(indent+2, s->stmblock->stms);
 }
 
-printit(funcdefine)
+parseit(funcdefine)
 {
     ind;
     if (s->funcdefine->is_void)
     {
         PRINT("void function define:\n");
-        print_ident(indent+2, s->funcdefine->id);
-        print_formals(indent+2, s->funcdefine->formals);
-        print_stmblock(indent+2, s->funcdefine->stmblock);   
+        parse_ident(indent+2, s->funcdefine->id);
+        parse_formals(indent+2, s->funcdefine->formals);
+        parse_stmblock(indent+2, s->funcdefine->stmblock);   
     }
     else
     {
         PRINT("function define:\n");
-        print_type(indent+2, s->funcdefine->type);
-        print_ident(indent+2, s->funcdefine->id);
-        print_formals(indent+2, s->funcdefine->formals);
-        print_stmblock(indent+2, s->funcdefine->stmblock);
+        parse_type(indent+2, s->funcdefine->type);
+        parse_ident(indent+2, s->funcdefine->id);
+        parse_formals(indent+2, s->funcdefine->formals);
+        parse_stmblock(indent+2, s->funcdefine->stmblock);
     }
 }
 
-printit(field)
+parseit(field)
 {
     in;
     //PRINT("class field:\n");
     if (s->field->is_vardefine)
     {
-        print_vardefine(indent, s->field->vardefine);
+        parse_vardefine(indent, s->field->vardefine);
     }
     else
     {
-        print_funcdefine(indent, s->field->funcdefine);
+        parse_funcdefine(indent, s->field->funcdefine);
     }
 }
 
-printit(fields)
+parseit(fields)
 {
     in;
     struct fields *i;
     for (i=s->fields; i; i=i->next)
     {
-        print_field(indent, i->field);
+        parse_field(indent, i->field);
     }
 }
 
-printit(extend)
+parseit(extend)
 {
     ind;
     PRINT("class extends:\n");
-    print_ident(indent+2, s->extend->id);
+    parse_ident(indent+2, s->extend->id);
 }
 
-printit(id_with_comma)
+parseit(id_with_comma)
 {
     in;
     struct id_with_comma *i;
     for (i=s->id_with_comma; i; i=i->next)
     {
-        print_ident(indent, i->id);
+        parse_ident(indent, i->id);
     }
 }
 
-printit(implement)
+parseit(implement)
 {
     ind;
     PRINT("class implements protypes:\n");
-    print_id_with_comma(indent+2 ,s->implement->id_with_comma);
+    parse_id_with_comma(indent+2 ,s->implement->id_with_comma);
 }
 
-printit(classdefine)
+parseit(classdefine)
 {
     ind;
     PRINT("class define:\n");
-    print_ident(indent+2, s->classdefine->id);
-    print_extend(indent+2, s->classdefine->extend);
-    print_implement(indent+2, s->classdefine->implement);
-    print_fields(indent+2, s->classdefine->fields);
+    parse_ident(indent+2, s->classdefine->id);
+    parse_extend(indent+2, s->classdefine->extend);
+    parse_implement(indent+2, s->classdefine->implement);
+    parse_fields(indent+2, s->classdefine->fields);
 }
 
-printit(protype)
+parseit(protype)
 {
     ind;
     if (s->protype->is_void)
     {
         PRINT("void protype:\n");
-        print_ident(indent+2, s->protype->id);
-        print_formals(indent+2, s->protype->formals);
+        parse_ident(indent+2, s->protype->id);
+        parse_formals(indent+2, s->protype->formals);
     }
     else
     {
         PRINT("protype:\n");
-        print_type(indent+2, s->protype->type);
-        print_ident(indent+2, s->protype->id);
-        print_formals(indent+2, s->protype->formals);
+        parse_type(indent+2, s->protype->type);
+        parse_ident(indent+2, s->protype->id);
+        parse_formals(indent+2, s->protype->formals);
     }
     
 }
 
-printit(protypes)
+parseit(protypes)
 {
     in;
     struct protypes *i;
     for (i=s->protypes; i; i=i->next)
     {
-        print_protype(indent, i->protype);
+        parse_protype(indent, i->protype);
     }
 }
 
-printit(interfacedefine)
+parseit(interfacedefine)
 {
     ind;
     PRINT("interface define:\n");
-    print_ident(indent+2, s->interfacedefine->id);
-    print_protypes(indent+2, s->interfacedefine->protypes);
+    parse_ident(indent+2, s->interfacedefine->id);
+    parse_protypes(indent+2, s->interfacedefine->protypes);
 }
 
-printit(define)
+parseit(define)
 {
     in;
     switch (s->define->define_type)
     {
     case DEFINE_VAR:
-        print_vardefine(indent, s->define->s_define);
+        parse_vardefine(indent, s->define->s_define);
         break;
     case DEFINE_FUNC:
-        print_funcdefine(indent, s->define->s_define);
+        parse_funcdefine(indent, s->define->s_define);
         break;
     case DEFINE_CLASS:
-        print_classdefine(indent, s->define->s_define);
+        parse_classdefine(indent, s->define->s_define);
         break;
     case DEFINE_INTERFACE:
-        print_interfacedefine(indent, s->define->s_define);
+        parse_interfacedefine(indent, s->define->s_define);
         break;
     }
 }
 
-printit(program)
+parseit(program)
 {
     ind;
     PRINT("PROGRAM:\n");
     struct program *i;
     for (i=s->program; i; i=i->next)
     {
-        print_define(indent+2, i->define);
+        parse_define(indent+2, i->define);
     }
 }

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "hash.h"
+
 #define YYSTYPE struct semantics*
 
 enum decaf_type
@@ -66,8 +68,8 @@ struct stm;
 
 struct symres
 {
-    enum decaf_type type;
-    const char *name;
+    hashtable_t *table;
+    struct symres *parent;
 };
 
 struct ident
@@ -360,6 +362,7 @@ struct semantics
     char *text;
     uint8_t type_ok;
     enum comp_type type;
+    int line;
     union
     {
         int i_val;
@@ -400,43 +403,43 @@ struct semantics
     };
 };
 
-#define printit(sem) void print_##sem(int indent, struct semantics *s)
+#define parseit(sem) void parse_##sem(int indent, struct semantics *s)
 
-printit(ident);
-printit(const);
-printit(null);
-printit(tformals);
-printit(formals);
-printit(type);
-printit(var);
-printit(vardefine);
-printit(vardefines);
-printit(expr_with_comma);
-printit(actuals);
-printit(call);
-printit(lvalue);
-printit(expr);
-printit(ifstm);
-printit(whilestm);
-printit(forstm);
-printit(retstm);
-printit(breakstm);
-printit(printstm);
-printit(expr_or_not);
-printit(stm);
-printit(stms);
-printit(stmblock);
-printit(funcdefine);
-printit(field);
-printit(fields);
-printit(extend);
-printit(ident_with_comma);
-printit(implement);
-printit(classdefine);
-printit(protype);
-printit(protypes);
-printit(interfacedefine);
-printit(define);
-printit(program);
+parseit(ident);
+parseit(const);
+parseit(null);
+parseit(tformals);
+parseit(formals);
+parseit(type);
+parseit(var);
+parseit(vardefine);
+parseit(vardefines);
+parseit(expr_with_comma);
+parseit(actuals);
+parseit(call);
+parseit(lvalue);
+parseit(expr);
+parseit(ifstm);
+parseit(whilestm);
+parseit(forstm);
+parseit(retstm);
+parseit(breakstm);
+parseit(printstm);
+parseit(expr_or_not);
+parseit(stm);
+parseit(stms);
+parseit(stmblock);
+parseit(funcdefine);
+parseit(field);
+parseit(fields);
+parseit(extend);
+parseit(ident_with_comma);
+parseit(implement);
+parseit(classdefine);
+parseit(protype);
+parseit(protypes);
+parseit(interfacedefine);
+parseit(define);
+parseit(program);
 
 #endif
