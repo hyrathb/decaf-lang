@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "uthash.h"
 
 #define YYSTYPE struct semantics*
 
@@ -70,25 +69,6 @@ struct semantics;
 struct expr;
 struct stm;
 
-struct symhash
-{
-    const char *name;
-    enum decaf_type type;
-    void *define;
-    UT_hash_handle hh;
-};
-
-struct symres
-{
-    struct symhash **table;
-    struct symres *parent;
-};
-
-struct ident
-{
-    char *name;
-    struct symres *sym;
-};
 
 struct if_stm
 {
@@ -415,46 +395,6 @@ struct semantics
     };
 };
 
-int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d);
-struct symhash *sym_get(struct symres *table, const char *i);
 
-#define parseit(sem) void parse_##sem(int indent, struct semantics *s)
-
-void parse_ident(int indent, struct semantics *s, int type);
-parseit(const);
-parseit(null);
-parseit(tformals);
-parseit(formals);
-parseit(type);
-parseit(var);
-parseit(vardefine);
-parseit(vardefines);
-parseit(expr_with_comma);
-parseit(actuals);
-parseit(call);
-parseit(lvalue);
-parseit(expr);
-parseit(ifstm);
-parseit(whilestm);
-parseit(forstm);
-parseit(retstm);
-parseit(breakstm);
-parseit(printstm);
-parseit(expr_or_not);
-parseit(stm);
-parseit(stms);
-parseit(stmblock);
-parseit(funcdefine);
-parseit(field);
-parseit(fields);
-parseit(extend);
-parseit(ident_with_comma);
-parseit(implement);
-parseit(classdefine);
-parseit(protype);
-parseit(protypes);
-parseit(interfacedefine);
-parseit(define);
-parseit(program);
 
 #endif

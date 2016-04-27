@@ -1,9 +1,20 @@
 interface ccc
 {
     int func23(int a, int b);
+    void abcde(string b, double c);
 }
 
-class a extends x implements bbb,ccc,ddd
+int printf(string fmt)
+{
+    Print(fmt);
+}
+
+class c1
+{
+    string n2;
+}
+
+class a extends c1 implements ccc
 {
     string name;
     int id;
@@ -36,6 +47,9 @@ int main(int argc, string argv)
     /*ldaksj///fasdj*/
     x="123asdvbnf\";
     y="";
+    for (c=0; c<100; c=c+1)
+        for (b=0; b<200; b=b+1)
+            aa = c+b;
     if (aa>b && c<d)
         aa=aa+b-c/d + 2+-3;
     b=3+(2-+1)+-3;

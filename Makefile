@@ -16,8 +16,8 @@ LEXICAL_C := lexical.c
 GRAMMAR_C := decaf.c
 OBJS += lexical.o
 OBJS += decaf.o
-OBJS += defs.o
-SOURCE += source/defs.c
+OBJS += symtable.o
+SOURCE += source/symtable.c
 
 
 all: bin 
@@ -27,7 +27,7 @@ test: bin
 
 src : $(LEXICAL) $(GRAMMAR)
 	flex -F -o $(LEXICAL_C) $(LEXICAL)
-	bison -v -d -o $(GRAMMAR_C) $(GRAMMAR)
+	bison -v -g -d -o $(GRAMMAR_C) $(GRAMMAR)
 
 $(OBJS): src $(SOURCE)
 	$(CC) $(CFLAGS) $(LEXICAL_C) $(GRAMMAR_C) $(SOURCE)

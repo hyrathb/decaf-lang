@@ -1,18 +1,17 @@
 #include "defs.h"
+#include "symtable.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef DEBUG
-#define PRINT(fmt, ...)   printf(fmt, ##__VA_ARGS__)
-#define PUTCHAR(c) putchar(c)
-#else
-#define PRINT(fmt, ...)
-#define PUTCHAR(c)
-#endif
-
 static struct symhash *roothash=NULL;
-static struct symres root={&roothash, NULL};
+static struct symres root={0, &roothash, NULL};
 static struct symres *current=&root;
+
+#define new_field(f) {struct symres *nt = malloc(sizeof(struct symres));\
+                      nt->table = malloc(sizeof(struct symhash *)); \
+                      *(nt->table) = NULL; \
+                      nt->parent = current; \
+                      current = nt;}
 
 int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
 {
@@ -26,6 +25,13 @@ int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
     n->define = d;
     HASH_ADD_KEYPTR( hh, *(table->table), n->name, strlen(n->name), n);
     return 0;
+}
+
+struct symhash *sym_get_no_recursive(struct symres *table, const char *i)
+{
+    struct symhash *n;
+    HASH_FIND_STR(*(table->table), i, n);
+    return n;
 }
 
 struct symhash *sym_get(struct symres *table, const char *i)
@@ -70,34 +76,37 @@ void parse_ident(int indent, struct semantics *s, int type)
             switch(r->type)
             {
             case D_INT:
-                PRINT("identifier: %s, type: int\n", s->text);
+                DBGPRINT("identifier: %s, type: int\n", s->text);
                 break;
             case D_BOOL:
-                PRINT("identifier: %s, type: bool\n", s->text);
+                DBGPRINT("identifier: %s, type: bool\n", s->text);
                 break;
             case D_DOUBLE:
-                PRINT("identifier: %s, type: double\n", s->text);
+                DBGPRINT("identifier: %s, type: double\n", s->text);
                 break;
             case D_STRING:
-                PRINT("identifier: %s, type: string\n", s->text);
+                DBGPRINT("identifier: %s, type: string\n", s->text);
                 break;
             case D_CLASS:
-                PRINT("identifier: %s, type: class\n", s->text);
+                DBGPRINT("identifier: %s, type: class\n", s->text);
                 break;
             case D_FUNCTION:
-                PRINT("identifier: %s, type: function\n", s->text);
+                DBGPRINT("identifier: %s, type: function\n", s->text);
                 break;
             case D_TYPE:
-                PRINT("identifier: %s, type: class type\n", s->text);
+                DBGPRINT("identifier: %s, type: class type\n", s->text);
+                break;
+            case D_INTERFACE:
+                DBGPRINT("identifier: %s, type: interface\n", s->text);
                 break;
             default:
-                PRINT("identifier: %s\n", s->text);
+                DBGPRINT("identifier: %s\n", s->text);
             }
         else
-            PRINT("identifier: %s\n", s->text);
+            WPRINT("Fatal: Unknown identifier %s\n", s->text);
     }
     else
-        PRINT("identifier: %s\n", s->text);
+        DBGPRINT("identifier: %s\n", s->text);
 }
 
 parseit(const)
@@ -106,16 +115,16 @@ parseit(const)
     switch (s->type)
     {
     case C_ICONST:
-        PRINT("int const: %d\n", s->i_val);
+        DBGPRINT("int const: %d\n", s->i_val);
         break;
     case C_BCONST:
-        PRINT("bool const: %s\n", s->i_val?"true":"false");
+        DBGPRINT("bool const: %s\n", s->i_val?"true":"false");
         break;
     case C_DCONST:
-        PRINT("double const: %f\n", s->d_val);
+        DBGPRINT("double const: %f\n", s->d_val);
         break;
     case C_SCONST:
-        PRINT("string const: %s\n", s->s_val);
+        DBGPRINT("string const: %s\n", s->s_val);
         break;
     default:
         return;
@@ -125,13 +134,13 @@ parseit(const)
 parseit(null)
 {
     ind;
-    PRINT("NULL\n");
+    DBGPRINT("NULL\n");
 }
 
 parseit(formals)
 {
     ind;
-    PRINT("formals:\n");
+    DBGPRINT("formals:\n");
     struct tformals *i;
     if (s->formals->tformals)
     {
@@ -148,16 +157,16 @@ parseit(type)
         switch(s->vtype->btype)
         {
         case D_INT:
-            PRINT("type: int\n");
+            DBGPRINT("type: int\n");
             break;
         case D_BOOL:
-            PRINT("type: bool\n");
+            DBGPRINT("type: bool\n");
             break;
         case D_DOUBLE:
-            PRINT("type: double\n");
+            DBGPRINT("type: double\n");
             break;
         case D_STRING:
-            PRINT("type: string\n");
+            DBGPRINT("type: string\n");
             break;
         default:
             return;
@@ -165,12 +174,12 @@ parseit(type)
     }
     else if (s->vtype->is_array)
     {
-        PRINT("type: array of\n");
+        DBGPRINT("type: array of\n");
         parse_type(indent+2, s->vtype->arr_type);
     }
     else
     {
-        PRINT("type: class\n");
+        DBGPRINT("type: class\n");
         parse_ident(indent+2, s->vtype->id, 0);
     }
 }
@@ -186,7 +195,7 @@ parseit(var)
 parseit(vardefine)
 {
     ind;
-    PRINT("var define:\n");
+    DBGPRINT("var define:\n");
     parse_var(indent+2, s->vardefine->var);
 }
 
@@ -194,7 +203,7 @@ parseit(vardefines)
 {
     struct vardefines *i;
     ind;
-    PRINT("var define section:\n");
+    DBGPRINT("var define section:\n");
     for (i=s->vardefines; i; i=i->next)
         parse_vardefine(indent+2, i->vardefine);
 }
@@ -210,7 +219,7 @@ parseit(expr_with_comma)
 parseit(actuals)
 {
     ind;
-    PRINT("actuals:\n");
+    DBGPRINT("actuals:\n");
     parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
 }
 
@@ -219,14 +228,14 @@ parseit(call)
     ind;
     if (s->call->is_member)
     {
-        PRINT("member function call:\n");
+        DBGPRINT("member function call:\n");
         parse_expr(indent+2, s->call->expr);
         parse_ident(indent+2, s->call->id, 1);
         parse_actuals(indent+2, s->call->actuals);
     }
     else
     {
-        PRINT("function call:\n");
+        DBGPRINT("function call:\n");
         parse_ident(indent+2, s->call->id, 1);
         parse_actuals(indent+2, s->call->actuals);
     }
@@ -238,16 +247,16 @@ parseit(lvalue)
     switch (s->lvalue->lvalue_type)
     {
     case LVAL_IDENT:
-        PRINT("identifier as lvalue: \n");
+        DBGPRINT("identifier as lvalue: \n");
         parse_ident(indent+2, s->lvalue->id, 1);
         break;
     case LVAL_MEMBER:
-        PRINT("member as lvalue: \n");
+        DBGPRINT("member as lvalue: \n");
         parse_expr(indent+2, s->lvalue->expr1);
         parse_ident(indent+2, s->lvalue->id, 1);
         break;
     case LVAL_ARRAY:
-        PRINT("array elem as lvalue: \n");
+        DBGPRINT("array elem as lvalue: \n");
         parse_expr(indent+2, s->lvalue->expr1);
         parse_expr(indent+2, s->lvalue->expr2);
     }
@@ -259,111 +268,111 @@ parseit(expr)
     switch (s->expr->expr_type)
     {
     case EXPR_ASSIGN:
-        PRINT("assign expr:\n");
+        DBGPRINT("assign expr:\n");
         parse_lvalue(indent+2, s->expr->lvalue);
         parse_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_CONST:
-        PRINT("const expr:\n");
+        DBGPRINT("const expr:\n");
         parse_const(indent+2, s->expr->constant);
         break;
     case EXPR_LVAL:
-        PRINT("lvalue expr:\n");
+        DBGPRINT("lvalue expr:\n");
         parse_lvalue(indent+2, s->expr->lvalue);
         break;
     case EXPR_THIS:
-        PRINT("this pointer expr:\n");
+        DBGPRINT("this pointer expr:\n");
         break;
     case EXPR_CALL:
-        PRINT("function call expr:\n");
+        DBGPRINT("function call expr:\n");
         parse_call(indent+2, s->expr->call);
         break;
     case EXPR_PRIORITY:
-        PRINT("(expr):\n");
+        DBGPRINT("(expr):\n");
         parse_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_PLUS:
-        PRINT("+ expr:\n");
+        DBGPRINT("+ expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_MINUS:
-        PRINT("- expr:\n");
+        DBGPRINT("- expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_MUL:
-        PRINT("* expr:\n");
+        DBGPRINT("* expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_DIV:
-        PRINT("/ expr:\n");
+        DBGPRINT("/ expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_IDIV:
         PUTCHAR('%');
-        PRINT(" expr:\n");
+        DBGPRINT(" expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_LT:
-        PRINT("< expr:\n");
+        DBGPRINT("< expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_LE:
-        PRINT("<= expr:\n");
+        DBGPRINT("<= expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_GT:
-        PRINT("> expr:\n");
+        DBGPRINT("> expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_GE:
-        PRINT(">= expr:\n");
+        DBGPRINT(">= expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_EQU:
-        PRINT("== expr:\n");
+        DBGPRINT("== expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_NE:
-        PRINT("!= expr:\n");
+        DBGPRINT("!= expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_AND:
-        PRINT("&& expr:\n");
+        DBGPRINT("&& expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_OR:
-        PRINT("|| expr:\n");
+        DBGPRINT("|| expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_NOT:
-        PRINT("! expr:\n");
+        DBGPRINT("! expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_READINTEGER:
-        PRINT("read integer expr:\n");
+        DBGPRINT("read integer expr:\n");
         break;
     case EXPR_READLINE:
-        PRINT("read line expr:\n");
+        DBGPRINT("read line expr:\n");
         break;
     case EXPR_NEW:
-        PRINT("new expr:\n");
+        DBGPRINT("new expr:\n");
         parse_ident(indent+2, s->expr->id, 1);
         break;
     case EXPR_NEWARRAY:
-        PRINT("newarray expr:\n");
+        DBGPRINT("newarray expr:\n");
         parse_expr(indent+2, s->expr->expr1);
         parse_type(indent+2, s->expr->id);
         break;
@@ -373,20 +382,20 @@ parseit(expr)
 parseit(ifstm)
 {
     ind;
-    PRINT("if statement:\n");
+    DBGPRINT("if statement:\n");
     parse_expr(indent+2, s->if_stm->expr);
     ind;
-    PRINT("then:\n");
+    DBGPRINT("then:\n");
     parse_stm(indent+2, s->if_stm->stm1);
     ind;
-    PRINT("else:\n");
+    DBGPRINT("else:\n");
     parse_stm(indent+2, s->if_stm->stm2);
 }
 
 parseit(whilestm)
 {
     ind;
-    PRINT("while statement:\n");
+    DBGPRINT("while statement:\n");
     parse_expr(indent+2, s->whilestm->expr);
     parse_stm(indent+2, s->whilestm->stm);
 }
@@ -394,35 +403,38 @@ parseit(whilestm)
 parseit(forstm)
 {
     ind;
-    PRINT("for statement:\n");
+    DBGPRINT("for statement:\n");
     ind;
-    PRINT("INIT:\n");
+    DBGPRINT("INIT:\n");
     parse_expr_or_not(indent+2, s->forstm->expr_or_not1);
     ind;
-    PRINT("COND:\n");
+    DBGPRINT("COND:\n");
     parse_expr(indent+2, s->forstm->expr);
     ind;
-    PRINT("ACC:\n");
+    DBGPRINT("ACC:\n");
     parse_expr_or_not(indent+2, s->forstm->expr_or_not2);
+    ind;
+    DBGPRINT("STATEMENT:\n");
+    parse_stm(indent+2, s->forstm->stm);
 }
 
 parseit(retstm)
 {
     ind;
-    PRINT("return statement:\n");
+    DBGPRINT("return statement:\n");
     parse_expr_or_not(indent+2, s->returnstm->expr_or_not);
 }
 
 parseit(breakstm)
 {
     ind;
-    PRINT("break statement\n");
+    DBGPRINT("break statement\n");
 }
 
 parseit(printstm)
 {
     ind;
-    PRINT("print statement:\n");
+    DBGPRINT("print statement:\n");
     parse_expr(indent+2, s->printstm->expr);
 }
 
@@ -441,7 +453,7 @@ parseit(stm)
         break;
     case STM_EXPR:
         ind;
-        PRINT("expr statement:\n");
+        DBGPRINT("expr statement:\n");
         parse_expr(indent+2, s->stm->expr);
         break;
     case STM_IF:
@@ -471,7 +483,7 @@ parseit(stm)
 parseit(stms)
 {
     ind;
-    PRINT("statement section:\n");
+    DBGPRINT("statement section:\n");
     struct stms *i;
     for (i=s->stms; i; i=i->next)
     {
@@ -482,7 +494,7 @@ parseit(stms)
 parseit(stmblock)
 {
     ind;
-    PRINT("statement block:\n");
+    DBGPRINT("statement block:\n");
     parse_vardefines(indent+2, s->stmblock->vardefines);
     parse_stms(indent+2, s->stmblock->stms);
 }
@@ -492,27 +504,30 @@ parseit(funcdefine)
     ind;
     if (s->funcdefine->is_void)
     {
-        PRINT("void function define:\n");
+        DBGPRINT("void function define:\n");
         parse_ident(indent+2, s->funcdefine->id, 0);
-        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
+        new_field(current);
         parse_formals(indent+2, s->funcdefine->formals);
         parse_stmblock(indent+2, s->funcdefine->stmblock);   
+        sym_add(current->parent, s->funcdefine->id->text, D_FUNCTION, current);
+        current = current->parent;
     }
     else
     {
-        PRINT("function define:\n");
+        DBGPRINT("function define:\n");
         parse_type(indent+2, s->funcdefine->type);
         parse_ident(indent+2, s->funcdefine->id, 0);
-        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
+        new_field(current);
         parse_formals(indent+2, s->funcdefine->formals);
         parse_stmblock(indent+2, s->funcdefine->stmblock);
+        sym_add(current->parent, s->funcdefine->id->text, D_FUNCTION, 0);
     }
 }
 
 parseit(field)
 {
     in;
-    //PRINT("class field:\n");
+    //DBGPRINT("class field:\n");
     if (s->field->is_vardefine)
     {
         parse_vardefine(indent, s->field->vardefine);
@@ -536,7 +551,7 @@ parseit(fields)
 parseit(extend)
 {
     ind;
-    PRINT("class extends:\n");
+    DBGPRINT("class extends:\n");
     parse_ident(indent+2, s->extend->id, 1);
 }
 
@@ -553,19 +568,21 @@ parseit(id_with_comma)
 parseit(implement)
 {
     ind;
-    PRINT("class implements protypes:\n");
+    DBGPRINT("class implements protypes:\n");
     parse_id_with_comma(indent+2 ,s->implement->id_with_comma);
 }
 
 parseit(classdefine)
 {
     ind;
-    PRINT("class define:\n");
+    DBGPRINT("class define:\n");
     parse_ident(indent+2, s->classdefine->id, 0);
-    sym_add(current, s->classdefine->id->text, D_TYPE, 0);
     parse_extend(indent+2, s->classdefine->extend);
     parse_implement(indent+2, s->classdefine->implement);
+    new_field(current);
     parse_fields(indent+2, s->classdefine->fields);
+    sym_add(current->parent, s->classdefine->id->text, D_TYPE, current);
+    current = current->parent;
 }
 
 parseit(protype)
@@ -573,13 +590,13 @@ parseit(protype)
     ind;
     if (s->protype->is_void)
     {
-        PRINT("void protype:\n");
+        DBGPRINT("void protype:\n");
         parse_ident(indent+2, s->protype->id, 0);
         parse_formals(indent+2, s->protype->formals);
     }
     else
     {
-        PRINT("protype:\n");
+        DBGPRINT("protype:\n");
         parse_type(indent+2, s->protype->type);
         parse_ident(indent+2, s->protype->id, 0);
         parse_formals(indent+2, s->protype->formals);
@@ -600,7 +617,7 @@ parseit(protypes)
 parseit(interfacedefine)
 {
     ind;
-    PRINT("interface define:\n");
+    DBGPRINT("interface define:\n");
     parse_ident(indent+2, s->interfacedefine->id, 0);
     sym_add(current, s->interfacedefine->id->text, D_INTERFACE, 0);
     parse_protypes(indent+2, s->interfacedefine->protypes);
@@ -629,7 +646,7 @@ parseit(define)
 parseit(program)
 {
     ind;
-    PRINT("PROGRAM:\n");
+    DBGPRINT("PROGRAM:\n");
     struct program *i;
     for (i=s->program; i; i=i->next)
     {

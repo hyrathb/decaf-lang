@@ -4,6 +4,7 @@
   #include <stdlib.h>
   #include <stdarg.h>
   #include "defs.h"
+  #include "symtable.h"
   
   #define new_node (malloc(sizeof(struct semantics)))
   
