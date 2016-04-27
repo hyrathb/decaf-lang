@@ -2,15 +2,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef DEBUG
+#define PRINT(fmt, ...)   printf(fmt, ##__VA_ARGS__)
+#define PUTCHAR(c) putchar(c)
+#else
+#define PRINT(fmt, ...)
+#define PUTCHAR(c)
+#endif
+
 void printindent(int indent)
 {
     int i;
     for (i=0; i<indent; ++i)
     {/*
         if (indent-i <= 2)
-            putchar('-');
+            PUTCHAR('-');
         else */
-            putchar(' ');
+            PUTCHAR(' ');
     }
 }
 
@@ -24,7 +32,7 @@ void printindent(int indent)
 printit(ident)
 {
     ind;
-    printf("identifier: %s\n", s->text);
+    PRINT("identifier: %s\n", s->text);
 }
 
 printit(const)
@@ -33,16 +41,16 @@ printit(const)
     switch (s->type)
     {
     case C_ICONST:
-        printf("int const: %d\n", s->i_val);
+        PRINT("int const: %d\n", s->i_val);
         break;
     case C_BCONST:
-        printf("bool const: %s\n", s->i_val?"true":"false");
+        PRINT("bool const: %s\n", s->i_val?"true":"false");
         break;
     case C_DCONST:
-        printf("double const: %f\n", s->d_val);
+        PRINT("double const: %f\n", s->d_val);
         break;
     case C_SCONST:
-        printf("string const: %s\n", s->s_val);
+        PRINT("string const: %s\n", s->s_val);
         break;
     default:
         return;
@@ -52,13 +60,13 @@ printit(const)
 printit(null)
 {
     ind;
-    printf("NULL\n");
+    PRINT("NULL\n");
 }
 
 printit(formals)
 {
     ind;
-    printf("formals:\n");
+    PRINT("formals:\n");
     struct tformals *i;
     if (s->formals->tformals)
     {
@@ -75,16 +83,16 @@ printit(type)
         switch(s->vtype->btype)
         {
         case D_INT:
-            printf("type: int\n");
+            PRINT("type: int\n");
             break;
         case D_BOOL:
-            printf("type: bool\n");
+            PRINT("type: bool\n");
             break;
         case D_DOUBLE:
-            printf("type: double\n");
+            PRINT("type: double\n");
             break;
         case D_STRING:
-            printf("type: string\n");
+            PRINT("type: string\n");
             break;
         default:
             return;
@@ -92,12 +100,12 @@ printit(type)
     }
     else if (s->vtype->is_array)
     {
-        printf("type: array of\n");
+        PRINT("type: array of\n");
         print_type(indent+2, s->vtype->arr_type);
     }
     else
     {
-        printf("type: class\n");
+        PRINT("type: class\n");
         print_ident(indent+2, s->vtype->id);
     }
 }
@@ -112,7 +120,7 @@ printit(var)
 printit(vardefine)
 {
     ind;
-    printf("var define:\n");
+    PRINT("var define:\n");
     print_var(indent+2, s->vardefine->var);
 }
 
@@ -120,7 +128,7 @@ printit(vardefines)
 {
     struct vardefines *i;
     ind;
-    printf("var define section:\n");
+    PRINT("var define section:\n");
     for (i=s->vardefines; i; i=i->next)
         print_vardefine(indent+2, i->vardefine);
 }
@@ -136,7 +144,7 @@ printit(expr_with_comma)
 printit(actuals)
 {
     ind;
-    printf("actuals:\n");
+    PRINT("actuals:\n");
     print_expr_with_comma(indent+2, s->actuals->expr_with_comma);
 }
 
@@ -145,14 +153,14 @@ printit(call)
     ind;
     if (s->call->is_member)
     {
-        printf("member function call:\n");
+        PRINT("member function call:\n");
         print_expr(indent+2, s->call->expr);
         print_ident(indent+2, s->call->id);
         print_actuals(indent+2, s->call->actuals);
     }
     else
     {
-        printf("function call:\n");
+        PRINT("function call:\n");
         print_ident(indent+2, s->call->id);
         print_actuals(indent+2, s->call->actuals);
     }
@@ -164,16 +172,16 @@ printit(lvalue)
     switch (s->lvalue->lvalue_type)
     {
     case LVAL_IDENT:
-        printf("identifier as lvalue: \n");
+        PRINT("identifier as lvalue: \n");
         print_ident(indent+2, s->lvalue->id);
         break;
     case LVAL_MEMBER:
-        printf("member as lvalue: \n");
+        PRINT("member as lvalue: \n");
         print_expr(indent+2, s->lvalue->expr1);
         print_ident(indent+2, s->lvalue->id);
         break;
     case LVAL_ARRAY:
-        printf("array elem as lvalue: \n");
+        PRINT("array elem as lvalue: \n");
         print_expr(indent+2, s->lvalue->expr1);
         print_expr(indent+2, s->lvalue->expr2);
     }
@@ -185,111 +193,111 @@ printit(expr)
     switch (s->expr->expr_type)
     {
     case EXPR_ASSIGN:
-        printf("assign expr:\n");
+        PRINT("assign expr:\n");
         print_lvalue(indent+2, s->expr->lvalue);
         print_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_CONST:
-        printf("const expr:\n");
+        PRINT("const expr:\n");
         print_const(indent+2, s->expr->constant);
         break;
     case EXPR_LVAL:
-        printf("lvalue expr:\n");
+        PRINT("lvalue expr:\n");
         print_lvalue(indent+2, s->expr->lvalue);
         break;
     case EXPR_THIS:
-        printf("this pointer expr:\n");
+        PRINT("this pointer expr:\n");
         break;
     case EXPR_CALL:
-        printf("function call expr:\n");
+        PRINT("function call expr:\n");
         print_call(indent+2, s->expr->call);
         break;
     case EXPR_PRIORITY:
-        printf("(expr):\n");
+        PRINT("(expr):\n");
         print_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_PLUS:
-        printf("+ expr:\n");
+        PRINT("+ expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_MINUS:
-        printf("- expr:\n");
+        PRINT("- expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_MUL:
-        printf("* expr:\n");
+        PRINT("* expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_DIV:
-        printf("/ expr:\n");
+        PRINT("/ expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_IDIV:
-        putchar('%');
-        printf(" expr:\n");
+        PUTCHAR('%');
+        PRINT(" expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_LT:
-        printf("< expr:\n");
+        PRINT("< expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_LE:
-        printf("<= expr:\n");
+        PRINT("<= expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_GT:
-        printf("> expr:\n");
+        PRINT("> expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_GE:
-        printf(">= expr:\n");
+        PRINT(">= expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_EQU:
-        printf("== expr:\n");
+        PRINT("== expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_NE:
-        printf("!= expr:\n");
+        PRINT("!= expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_AND:
-        printf("&& expr:\n");
+        PRINT("&& expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_OR:
-        printf("|| expr:\n");
+        PRINT("|| expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_expr(indent+2, s->expr->expr2);
         break;
     case EXPR_NOT:
-        printf("! expr:\n");
+        PRINT("! expr:\n");
         print_expr(indent+2, s->expr->expr1);
         break;
     case EXPR_READINTEGER:
-        printf("read integer expr:\n");
+        PRINT("read integer expr:\n");
         break;
     case EXPR_READLINE:
-        printf("read line expr:\n");
+        PRINT("read line expr:\n");
         break;
     case EXPR_NEW:
-        printf("new expr:\n");
+        PRINT("new expr:\n");
         print_ident(indent+2, s->expr->id);
         break;
     case EXPR_NEWARRAY:
-        printf("newarray expr:\n");
+        PRINT("newarray expr:\n");
         print_expr(indent+2, s->expr->expr1);
         print_type(indent+2, s->expr->id);
         break;
@@ -299,20 +307,20 @@ printit(expr)
 printit(ifstm)
 {
     ind;
-    printf("if statement:\n");
+    PRINT("if statement:\n");
     print_expr(indent+2, s->if_stm->expr);
     ind;
-    printf("then:\n");
+    PRINT("then:\n");
     print_stm(indent+2, s->if_stm->stm1);
     ind;
-    printf("else:\n");
+    PRINT("else:\n");
     print_stm(indent+2, s->if_stm->stm2);
 }
 
 printit(whilestm)
 {
     ind;
-    printf("while statement:\n");
+    PRINT("while statement:\n");
     print_expr(indent+2, s->whilestm->expr);
     print_stm(indent+2, s->whilestm->stm);
 }
@@ -320,35 +328,35 @@ printit(whilestm)
 printit(forstm)
 {
     ind;
-    printf("for statement:\n");
+    PRINT("for statement:\n");
     ind;
-    printf("INIT:\n");
+    PRINT("INIT:\n");
     print_expr_or_not(indent+2, s->forstm->expr_or_not1);
     ind;
-    printf("COND:\n");
+    PRINT("COND:\n");
     print_expr(indent+2, s->forstm->expr);
     ind;
-    printf("ACC:\n");
+    PRINT("ACC:\n");
     print_expr_or_not(indent+2, s->forstm->expr_or_not2);
 }
 
 printit(retstm)
 {
     ind;
-    printf("return statement:\n");
+    PRINT("return statement:\n");
     print_expr_or_not(indent+2, s->returnstm->expr_or_not);
 }
 
 printit(breakstm)
 {
     ind;
-    printf("break statement\n");
+    PRINT("break statement\n");
 }
 
 printit(printstm)
 {
     ind;
-    printf("print statement:\n");
+    PRINT("print statement:\n");
     print_expr(indent+2, s->printstm->expr);
 }
 
@@ -367,7 +375,7 @@ printit(stm)
         break;
     case STM_EXPR:
         ind;
-        printf("expr statement:\n");
+        PRINT("expr statement:\n");
         print_expr(indent+2, s->stm->expr);
         break;
     case STM_IF:
@@ -397,7 +405,7 @@ printit(stm)
 printit(stms)
 {
     ind;
-    printf("statement section:\n");
+    PRINT("statement section:\n");
     struct stms *i;
     for (i=s->stms; i; i=i->next)
     {
@@ -408,7 +416,7 @@ printit(stms)
 printit(stmblock)
 {
     ind;
-    printf("statement block:\n");
+    PRINT("statement block:\n");
     print_vardefines(indent+2, s->stmblock->vardefines);
     print_stms(indent+2, s->stmblock->stms);
 }
@@ -418,14 +426,14 @@ printit(funcdefine)
     ind;
     if (s->funcdefine->is_void)
     {
-        printf("void function define:\n");
+        PRINT("void function define:\n");
         print_ident(indent+2, s->funcdefine->id);
         print_formals(indent+2, s->funcdefine->formals);
         print_stmblock(indent+2, s->funcdefine->stmblock);   
     }
     else
     {
-        printf("function define:\n");
+        PRINT("function define:\n");
         print_type(indent+2, s->funcdefine->type);
         print_ident(indent+2, s->funcdefine->id);
         print_formals(indent+2, s->funcdefine->formals);
@@ -436,7 +444,7 @@ printit(funcdefine)
 printit(field)
 {
     in;
-    //printf("class field:\n");
+    //PRINT("class field:\n");
     if (s->field->is_vardefine)
     {
         print_vardefine(indent, s->field->vardefine);
@@ -460,7 +468,7 @@ printit(fields)
 printit(extend)
 {
     ind;
-    printf("class extends:\n");
+    PRINT("class extends:\n");
     print_ident(indent+2, s->extend->id);
 }
 
@@ -477,14 +485,14 @@ printit(id_with_comma)
 printit(implement)
 {
     ind;
-    printf("class implements protypes:\n");
+    PRINT("class implements protypes:\n");
     print_id_with_comma(indent+2 ,s->implement->id_with_comma);
 }
 
 printit(classdefine)
 {
     ind;
-    printf("class define:\n");
+    PRINT("class define:\n");
     print_ident(indent+2, s->classdefine->id);
     print_extend(indent+2, s->classdefine->extend);
     print_implement(indent+2, s->classdefine->implement);
@@ -496,13 +504,13 @@ printit(protype)
     ind;
     if (s->protype->is_void)
     {
-        printf("void protype:\n");
+        PRINT("void protype:\n");
         print_ident(indent+2, s->protype->id);
         print_formals(indent+2, s->protype->formals);
     }
     else
     {
-        printf("protype:\n");
+        PRINT("protype:\n");
         print_type(indent+2, s->protype->type);
         print_ident(indent+2, s->protype->id);
         print_formals(indent+2, s->protype->formals);
@@ -523,7 +531,7 @@ printit(protypes)
 printit(interfacedefine)
 {
     ind;
-    printf("interface define:\n");
+    PRINT("interface define:\n");
     print_ident(indent+2, s->interfacedefine->id);
     print_protypes(indent+2, s->interfacedefine->protypes);
 }
@@ -551,7 +559,7 @@ printit(define)
 printit(program)
 {
     ind;
-    printf("PROGRAM:\n");
+    PRINT("PROGRAM:\n");
     struct program *i;
     for (i=s->program; i; i=i->next)
     {

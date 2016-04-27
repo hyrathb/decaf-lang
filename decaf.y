@@ -273,17 +273,23 @@ int main(int argc, char **argv)
     if (argc == 2)
     {
         yyin=fopen(argv[1],"r");
+        #ifdef DEBUG
         yydebug=1;
+        #endif
         yyparse();
         print_program(0, head);
+        printf("OK\n");
     }
     else
     {
         printf("Usage %s [FILE]\n", argv[0]);
         yyin=fopen("hehe.decaf","r");
+        #ifdef DEBUG
         yydebug=1;
+        #endif
         yyparse();
         print_program(0, head);
+        printf("OK\n");
     }
     return 0;
 }

@@ -6,7 +6,10 @@ CC := gcc
 LD := ld
 BIN := test
 TESTFILE := hehe.decaf
-CFLAGS := -O2 -Wall -c -g -DYYDEBUG -Iinclude
+CFLAGS := -O2 -Wall -c -Iinclude
+ifdef DEBUG
+CFLAGS +=-g -DYYDEBUG -DDEBUG
+endif
 LEXICAL := decaf.l
 GRAMMAR := decaf.y
 LEXICAL_C := lexical.c
