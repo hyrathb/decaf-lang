@@ -106,7 +106,12 @@ void parse_ident(int indent, struct semantics *s, int type)
             WPRINT("Fatal: Unknown identifier %s\n", s->text);
     }
     else
-        DBGPRINT("identifier: %s\n", s->text);
+    {
+        if (sym_get_no_recursive(current, s->text))
+            WPRINT("Fatal: re-define of identifier %s\n", s->text);
+        else    
+            DBGPRINT("new identifier: %s\n", s->text);
+    }
 }
 
 parseit(const)
@@ -524,27 +529,27 @@ parseit(funcdefine)
     }
 }
 
-parseit(field)
+void parse_field(int indent, struct semantics *s, int no_func)
 {
     in;
     //DBGPRINT("class field:\n");
-    if (s->field->is_vardefine)
+    if (s->field->is_vardefine && no_func)
     {
         parse_vardefine(indent, s->field->vardefine);
     }
-    else
+    else if (!no_func)
     {
         parse_funcdefine(indent, s->field->funcdefine);
     }
 }
 
-parseit(fields)
+void parse_fields(int indent, struct semantics *s, int no_func)
 {
     in;
     struct fields *i;
     for (i=s->fields; i; i=i->next)
     {
-        parse_field(indent, i->field);
+        parse_field(indent, i->field, no_func);
     }
 }
 
@@ -572,15 +577,19 @@ parseit(implement)
     parse_id_with_comma(indent+2 ,s->implement->id_with_comma);
 }
 
+/*******TO DO: NEED TWO ROUND: THE FIRST TO ACQUIRE ALL IDENTIFIER, FUNCTION AND VTABLE; THE SECOND TO GENERATE CODE FOR FUNCTION****************/
+
 parseit(classdefine)
 {
     ind;
     DBGPRINT("class define:\n");
     parse_ident(indent+2, s->classdefine->id, 0);
+    struct class_detail *new_func=malloc(sizeof(struct class_detail));
     parse_extend(indent+2, s->classdefine->extend);
     parse_implement(indent+2, s->classdefine->implement);
     new_field(current);
-    parse_fields(indent+2, s->classdefine->fields);
+    parse_fields(indent+2, s->classdefine->fields, 1);
+    parse_fields(indent+2, s->classdefine->fields, 0);
     sym_add(current->parent, s->classdefine->id->text, D_TYPE, current);
     current = current->parent;
 }

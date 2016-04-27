@@ -36,5 +36,5 @@ bin: $(OBJS)
 	gcc -o $(BIN) $(OBJS)
 
 clean: 
-	rm -rf *.h *.c *.o *.output $(BIN)
+	rm -rf *.h *.c *.o *.output *.dot $(BIN)
 
