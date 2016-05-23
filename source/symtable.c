@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 static struct symhash *roothash=NULL;
-static struct symres root={0, &roothash, NULL};
+static struct symres root={0, 0, 0, &roothash, NULL};
 static struct symres *current=&root;
 
 #define new_field(f) {struct symres *nt = malloc(sizeof(struct symres));\
@@ -18,11 +18,13 @@ int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
     struct symhash *tmp;
     HASH_FIND_STR( *(table->table), i, tmp);
     if (tmp)
+    {
         return -1;
+    }
     struct symhash *n=malloc(sizeof(struct symhash));
     n->name = i;
     n->type = t;
-    n->define = d;
+    n->detail = d;
     HASH_ADD_KEYPTR( hh, *(table->table), n->name, strlen(n->name), n);
     return 0;
 }
@@ -45,6 +47,47 @@ struct symhash *sym_get(struct symres *table, const char *i)
         table = table->parent;
     }
     return NULL;
+}
+
+uint64_t base_size(struct class_detail *base)
+{
+    if (base)
+        return base->size;
+    return 0;
+}
+
+enum decaf_type get_basic_type(struct type *type)
+{
+    while (type->btype == D_ARRAY)
+        type = type->arr_type->vtype;
+    return type->btype;
+}
+
+uint64_t get_array_dims(struct type *type)
+{
+    uint64_t ret = 0;
+    while (type->btype == D_ARRAY)
+    {
+        ++ret;
+        type = type->arr_type->vtype;
+    }
+    return ret;
+}
+
+struct class_detail * get_array_class(struct type *type)
+{
+    while (type->btype == D_ARRAY)
+        type = type->arr_type->vtype;
+    struct symhash *r = sym_get(current, type->id->text);
+    if (r && r->type == D_TYPE)
+        return r->detail;
+    else
+    {
+        ERRPRINT("class %s not defined.\n", type->id->text);
+        return NULL;
+    }
+        
+        
 }
 
 void printindent(int indent)
@@ -108,7 +151,7 @@ void parse_ident(int indent, struct semantics *s, int type)
     else
     {
         if (sym_get_no_recursive(current, s->text))
-            WPRINT("Fatal: re-define of identifier %s\n", s->text);
+            //WPRINT("Fatal: re-define of identifier %s\n", s->text);
         else    
             DBGPRINT("new identifier: %s\n", s->text);
     }
@@ -194,7 +237,36 @@ parseit(var)
     in;
     parse_type(indent, s->var->type);
     parse_ident(indent, s->var->id, 0);
-    sym_add(current, s->var->id->text, s->var->type->vtype->btype, 0);
+    struct var_detail *new_var = malloc(sizeof(struct var_detail));
+    new_var->is_array = s->var->type->vtype->is_array;
+    new_var->array_dims = get_array_dims(s->var->type->vtype);
+    new_var->type = get_basic_type(s->var->type->vtype);
+    new_var->offset = current->current_var_offset;
+    new_var->class = NULL;
+    switch (new_var->type)
+    {
+    case D_INT:
+        new_var->size = INTSIZE;
+        break;
+    case D_BOOL:
+        new_var->size = BOOLSIZE;
+        break;
+    case D_DOUBLE:
+        new_var->size = DOUBLESIZE;
+        break;
+    case D_STRING:
+        new_var->size = STRINGSIZE;
+        break;
+    case D_CLASS:
+        new_var->class = get_array_class(s->var->type->vtype);
+        new_var->size = new_var->class->size;
+        break;
+    default:
+        ERRPRINT("Unknown type.\n");
+        
+    }
+    sym_add(current, s->var->id->text, s->var->type->vtype->btype, new_var);
+    current->current_var_offset += new_var->size + (new_var->size % ROUNDSIZE);
 }
 
 parseit(vardefine)
@@ -511,21 +583,18 @@ parseit(funcdefine)
     {
         DBGPRINT("void function define:\n");
         parse_ident(indent+2, s->funcdefine->id, 0);
-        new_field(current);
         parse_formals(indent+2, s->funcdefine->formals);
         parse_stmblock(indent+2, s->funcdefine->stmblock);   
-        sym_add(current->parent, s->funcdefine->id->text, D_FUNCTION, current);
-        current = current->parent;
+        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
     }
     else
     {
         DBGPRINT("function define:\n");
         parse_type(indent+2, s->funcdefine->type);
         parse_ident(indent+2, s->funcdefine->id, 0);
-        new_field(current);
         parse_formals(indent+2, s->funcdefine->formals);
         parse_stmblock(indent+2, s->funcdefine->stmblock);
-        sym_add(current->parent, s->funcdefine->id->text, D_FUNCTION, 0);
+        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
     }
 }
 
@@ -587,11 +656,9 @@ parseit(classdefine)
     struct class_detail *new_func=malloc(sizeof(struct class_detail));
     parse_extend(indent+2, s->classdefine->extend);
     parse_implement(indent+2, s->classdefine->implement);
-    new_field(current);
     parse_fields(indent+2, s->classdefine->fields, 1);
     parse_fields(indent+2, s->classdefine->fields, 0);
-    sym_add(current->parent, s->classdefine->id->text, D_TYPE, current);
-    current = current->parent;
+    sym_add(current, s->classdefine->id->text, D_TYPE, 0);
 }
 
 parseit(protype)

@@ -15,25 +15,28 @@
 #endif
 
 #define WPRINT(fmt, ...)  fprintf(stderr, fmt, ##__VA_ARGS__)
-
+#define ERRPRINT(fmt, ...)  fprintf(stderr, fmt, ##__VA_ARGS__)
 
 struct symhash
 {
     const char *name;
     enum decaf_type type;
-    void *define;
+    void *detail;
     UT_hash_handle hh;
 };
 
 struct symres
 {
     uint8_t is_class_scope;
+    uint64_t current_var_offset;
+    uint64_t current_func_offset;
     struct symhash **table;
     struct symres *parent;
 };
 
 struct func_detail
 {
+    uint64_t size;
     uint8_t is_member_function;
     struct semantics *type;
     struct semantics *formals;
@@ -41,19 +44,31 @@ struct func_detail
     uint64_t offset;
 };
 
-struct class_detail
-{
-    struct class_detail *base;
-    struct symres *env;
-};
-
 struct interface_detail
 {
     struct semantics *protypes;
 };
 
+
+struct interface_details
+{
+    struct interface_detail *detail;
+    struct interface_details *next;
+};
+
+struct class_detail
+{
+    uint64_t size;
+    struct class_detail *base;
+    struct interface_details *interface;
+    struct symres *env;
+};
+
 struct var_detail
 {
+    uint8_t is_array;
+    uint64_t array_dims;
+    uint64_t size;
     enum decaf_type type;
     struct class_detail *class;
     uint64_t offset;
@@ -62,6 +77,10 @@ struct var_detail
 int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d);
 struct symhash *sym_get(struct symres *table, const char *i);
 struct symhash *sym_get_no_recursive(struct symres *table, const char *i);
+uint64_t base_size(struct class_detail *base);
+enum decaf_type get_basic_type(struct type *type);
+uint64_t get_array_dims(struct type *type);
+
 
 #define parseit(sem) void parse_##sem(int indent, struct semantics *s)
 
