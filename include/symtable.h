@@ -25,9 +25,17 @@ struct symhash
     UT_hash_handle hh;
 };
 
+enum scope
+{
+    SCOPE_GLOBAL,
+    SCOPE_CLASS,
+    SCOPE_FORMAL,
+    SCOPE_LOCAL
+};
+
 struct symres
 {
-    uint8_t is_class_scope;
+    enum scope scope;
     uint64_t current_var_offset;
     uint64_t current_func_offset;
     struct symhash **table;
@@ -37,9 +45,8 @@ struct symres
 struct func_detail
 {
     uint64_t size;
-    uint8_t is_member_function;
     struct semantics *type;
-    struct semantics *formals;
+    struct symres *formals;
     struct ir *irlist;
     uint64_t offset;
 };
@@ -56,8 +63,17 @@ struct interface_details
     struct interface_details *next;
 };
 
+struct vtable
+{
+    const char *name;
+    uint64_t offset;
+    struct vtable *next;
+};
+
 struct class_detail
 {
+    uint64_t vtable_size;
+    struct vtable *vtable;
     uint64_t size;
     struct class_detail *base;
     struct interface_details *interface;

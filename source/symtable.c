@@ -1,14 +1,18 @@
 #include "defs.h"
+#include "ir.h"
 #include "symtable.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 static struct symhash *roothash=NULL;
-static struct symres root={0, 0, 0, &roothash, NULL};
+static struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
 static struct symres *current=&root;
 
-#define new_field(f) {struct symres *nt = malloc(sizeof(struct symres));\
+#define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
                       nt->table = malloc(sizeof(struct symhash *)); \
+                      nt->scope = s; \
+                      nt->current_var_offset = 0; \
+                      nt->current_func_offset = 0; \
                       *(nt->table) = NULL; \
                       nt->parent = current; \
                       current = nt;}
@@ -150,10 +154,7 @@ void parse_ident(int indent, struct semantics *s, int type)
     }
     else
     {
-        if (sym_get_no_recursive(current, s->text))
-            //WPRINT("Fatal: re-define of identifier %s\n", s->text);
-        else    
-            DBGPRINT("new identifier: %s\n", s->text);
+        DBGPRINT("new identifier: %s\n", s->text);
     }
 }
 
@@ -579,23 +580,28 @@ parseit(stmblock)
 parseit(funcdefine)
 {
     ind;
-    if (s->funcdefine->is_void)
-    {
-        DBGPRINT("void function define:\n");
-        parse_ident(indent+2, s->funcdefine->id, 0);
-        parse_formals(indent+2, s->funcdefine->formals);
-        parse_stmblock(indent+2, s->funcdefine->stmblock);   
-        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
-    }
-    else
+    struct func_detail *new_func = malloc(sizeof(struct func_detail));
+    if (!s->funcdefine->is_void)
     {
         DBGPRINT("function define:\n");
         parse_type(indent+2, s->funcdefine->type);
-        parse_ident(indent+2, s->funcdefine->id, 0);
-        parse_formals(indent+2, s->funcdefine->formals);
-        parse_stmblock(indent+2, s->funcdefine->stmblock);
-        sym_add(current, s->funcdefine->id->text, D_FUNCTION, 0);
+        new_func->type = s->funcdefine->type;
     }
+    else
+    {
+        DBGPRINT("void function define:\n");
+        new_func->type = NULL;
+    }
+    parse_ident(indent+2, s->funcdefine->id, 0);
+    new_field(SCOPE_FORMAL);
+    parse_formals(indent+2, s->funcdefine->formals);
+    new_func->formals = current;
+    new_field(SCOPE_LOCAL);
+    parse_stmblock(indent+2, s->funcdefine->stmblock);
+    current = current->parent->parent;
+    new_func->offset = current->current_func_offset;
+    current->current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
+    sym_add(current, s->funcdefine->id->text, D_FUNCTION, new_func);
 }
 
 void parse_field(int indent, struct semantics *s, int no_func)
@@ -606,7 +612,7 @@ void parse_field(int indent, struct semantics *s, int no_func)
     {
         parse_vardefine(indent, s->field->vardefine);
     }
-    else if (!no_func)
+    else if (!s->field->is_vardefine && !no_func)
     {
         parse_funcdefine(indent, s->field->funcdefine);
     }
@@ -653,7 +659,7 @@ parseit(classdefine)
     ind;
     DBGPRINT("class define:\n");
     parse_ident(indent+2, s->classdefine->id, 0);
-    struct class_detail *new_func=malloc(sizeof(struct class_detail));
+    struct class_detail *new_class=malloc(sizeof(struct class_detail));
     parse_extend(indent+2, s->classdefine->extend);
     parse_implement(indent+2, s->classdefine->implement);
     parse_fields(indent+2, s->classdefine->fields, 1);
@@ -695,8 +701,10 @@ parseit(interfacedefine)
     ind;
     DBGPRINT("interface define:\n");
     parse_ident(indent+2, s->interfacedefine->id, 0);
-    sym_add(current, s->interfacedefine->id->text, D_INTERFACE, 0);
     parse_protypes(indent+2, s->interfacedefine->protypes);
+    struct interface_detail *new_interface = malloc(sizeof(struct interface_detail));
+    new_interface->protypes = s->interfacedefine->protypes;
+    sym_add(current, s->interfacedefine->id->text, D_INTERFACE, new_interface);
 }
 
 parseit(define)
