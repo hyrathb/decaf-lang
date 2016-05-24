@@ -223,7 +223,7 @@ parseit(formals)
     ind;
     DBGPRINT("formals:\n");
     struct tformals *i;
-    if (s->formals->tformals)
+    if (s->formals->tformals && current->scope == SCOPE_FORMAL)
     {
         for (i=s->formals->tformals->tformals; i; i=i->next)
             parse_var(indent+2, i->var);
@@ -669,8 +669,19 @@ parseit(funcdefine)
     new_field(SCOPE_FORMAL);
     parse_formals(indent+2, s->funcdefine->formals);
     new_func->formals = current;
+    struct symhash *si;
+    for (si = *(current->table); si; si = si->hh.next)
+    {
+        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
+    }
+    DBGPRINT("\n");
     new_field(SCOPE_LOCAL);
     parse_stmblock(indent+2, s->funcdefine->stmblock);
+    for (si = *(current->table); si; si = si->hh.next)
+    {
+        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
+    }
+    DBGPRINT("\n");
     current = current->parent->parent;
     if (current->scope != SCOPE_CLASS)
     {
@@ -683,7 +694,6 @@ parseit(funcdefine)
 void parse_field(int indent, struct semantics *s, int no_func, struct class_detail *class)
 {
     ind;
-    DBGPRINT("class field:\n");
     if (no_func)
     {
         if (s->field->is_vardefine)
@@ -800,6 +810,12 @@ parseit(classdefine)
     parse_fields(indent+2, s->classdefine->fields, 1, new_class);
     new_class->size = current->current_var_offset + new_class->vtable_size;
     parse_fields(indent+2, s->classdefine->fields, 0, new_class);
+    struct symhash *si;
+    for (si = *(current->table); si; si = si->hh.next)
+    {
+        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
+    }
+    DBGPRINT("\n");
     current = current->parent;
     sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
 }
@@ -872,5 +888,10 @@ parseit(program)
     for (i=s->program; i; i=i->next)
     {
         parse_define(indent+2, i->define);
+    }
+    struct symhash *si;
+    for (si = *(root.table); si; si = si->hh.next)
+    {
+        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
     }
 }

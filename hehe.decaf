@@ -20,6 +20,7 @@ class a extends c1 implements ccc
     int id;
     void func1()
     {
+        int xyz;
         if (name!="")
         {
             printf("has name\n");
