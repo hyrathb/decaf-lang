@@ -9,7 +9,7 @@ static struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
 static struct func_detail *current_func = NULL;
-static struct irlist tirs[2048];
+static struct ir tirs[2048];
 
 #define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
                       nt->table = malloc(sizeof(struct symhash *)); \
@@ -19,6 +19,13 @@ static struct irlist tirs[2048];
                       *(nt->table) = NULL; \
                       nt->parent = current; \
                       current = nt;}
+
+#define DPRINTSYM(x)  if (current->table)   \
+                      {for (x = *(current->table); x; x = x->hh.next) \
+                      { \
+                            DBGPRINT("name %s, type %d, detail %p.\n", x->name, x->type, x->detail); \
+                      } \
+                      DBGPRINT("\n");}
 
 int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
 {
@@ -610,8 +617,14 @@ parseit(stmblock)
 {
     ind;
     DBGPRINT("statement block:\n");
+    new_field(SCOPE_LOCAL);
     parse_vardefines(indent+2, s->stmblock->vardefines);
     parse_stms(indent+2, s->stmblock->stms);
+    
+    struct symhash *si;
+    DPRINTSYM(si);
+    
+    current = current->parent;
 }
 
 void parse_funcdefine_reg_only(int indent, struct semantics *s)
@@ -658,6 +671,7 @@ parseit(funcdefine)
         new_func = malloc(sizeof(struct func_detail));
     current_func = new_func;
     new_func->generated = 1;
+    new_func->size = 0;
     if (!s->funcdefine->is_void)
     {
         DBGPRINT("function define:\n");
@@ -672,23 +686,12 @@ parseit(funcdefine)
     parse_ident(indent+2, s->funcdefine->id, 0);
     new_field(SCOPE_FORMAL);
     parse_formals(indent+2, s->funcdefine->formals);
-    new_func->formals = current;
     struct symhash *si;
-    for (si = *(current->table); si; si = si->hh.next)
-    {
-        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
-    }
-    DBGPRINT("\n");
-    new_field(SCOPE_LOCAL);
+    DPRINTSYM(si);
     parse_stmblock(indent+2, s->funcdefine->stmblock);
-    for (si = *(current->table); si; si = si->hh.next)
-    {
-        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
-    }
-    DBGPRINT("\n");
     new_func->irlist = malloc(new_func->size);
     memcpy(new_func->irlist, tirs, new_func->size);
-    current = current->parent->parent;
+    current = current->parent;
     if (current->scope != SCOPE_CLASS)
     {
         new_func->offset = root.current_func_offset;
@@ -827,11 +830,7 @@ parseit(classdefine)
         memcpy(new_class->vtable, new_class->base->vtable, new_class->base->vtable_size);
     parse_fields(indent+2, s->classdefine->fields, 0);
     struct symhash *si;
-    for (si = *(current->table); si; si = si->hh.next)
-    {
-        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
-    }
-    DBGPRINT("\n");
+    DPRINTSYM(si);
     current = current->parent;
     sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
 }

@@ -10,7 +10,7 @@ enum ir_type
     IR_DOUBLE,
     IR_B,
     IR_J
-}
+};
 
 struct ir
 {

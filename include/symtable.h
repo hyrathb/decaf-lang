@@ -48,7 +48,6 @@ struct func_detail
     uint8_t generated;
     uint64_t size;
     struct semantics *type;
-    struct symres *formals;
     struct ir *irlist;
     uint64_t offset;
 };
@@ -129,7 +128,7 @@ parseit(stm);
 parseit(stms);
 parseit(stmblock);
 parseit(funcdefine);
-parseit(funcdefine_reg_only)
+parseit(funcdefine_reg_only);
 void parse_field(int indent, struct semantics *s, int no_func);
 void parse_fields(int indent, struct semantics *s, int no_func);
 parseit(extend);
