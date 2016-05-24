@@ -3,12 +3,14 @@
 #include "symtable.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static struct symhash *roothash=NULL;
 static struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
 static struct func_detail *current_func = NULL;
+static char tir[50];
 static struct ir tirs[2048];
 
 #define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
@@ -20,13 +22,32 @@ static struct ir tirs[2048];
                       nt->parent = current; \
                       current = nt;}
 
+#define new_ir(t)         {tirs[current_func->ircount].type = t; \
+                            tirs[current_func->ircount].env = current; \
+                            tirs[current_func->ircount].code = malloc(strlen(tir) + 1); \
+                            strcpy(tirs[current_func->ircount].code, tir); \
+                            ++current_func->ircount;} 
+                      
+#ifdef SYMDEBUG
 #define DPRINTSYM(x)  if (current->table)   \
                       {for (x = *(current->table); x; x = x->hh.next) \
                       { \
                             DBGPRINT("name %s, type %d, detail %p.\n", x->name, x->type, x->detail); \
                       } \
                       DBGPRINT("\n");}
+#else
+#define DPRINTSYM(x)
+#endif
 
+/*******NOT NEED TO BE FREED*******/
+const char *get_tmp_var()
+{
+    static uint64_t i=0;
+    static char tmpname[20];
+    sprintf(tmpname, "t%lu", i);
+    return tmpname;
+}
+                      
 int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
 {
     struct symhash *tmp;
@@ -200,7 +221,7 @@ void parse_ident(int indent, struct semantics *s, int type)
     }
 }
 
-parseit(const)
+const char *parse_const(int indent, struct semantics *s)
 {
     ind;
     switch (s->type)
@@ -345,7 +366,7 @@ parseit(actuals)
     parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
 }
 
-parseit(call)
+const char *parse_call(int indent, struct semantics *s)
 {
     ind;
     if (s->call->is_member)
@@ -363,7 +384,7 @@ parseit(call)
     }
 }
 
-parseit(lvalue)
+const char *parse_lvalue(int indent, struct semantics *s)
 {
     ind;
     switch (s->lvalue->lvalue_type)
@@ -384,27 +405,36 @@ parseit(lvalue)
     }
 }
 
-parseit(expr)
+const char *parse_expr(int indent, struct semantics *s)
 {
     ind;
+    const char *l, *r, *r2;
     switch (s->expr->expr_type)
     {
     case EXPR_ASSIGN:
         DBGPRINT("assign expr:\n");
-        parse_lvalue(indent+2, s->expr->lvalue);
-        parse_expr(indent+2, s->expr->expr1);
-        break;
+        l= parse_lvalue(indent+2, s->expr->lvalue);
+        r = parse_expr(indent+2, s->expr->expr1);
+        sprintf(tir, "%s = %s", l, r);
+        new_ir(IR_SINGLE);
+        return l;
     case EXPR_CONST:
         DBGPRINT("const expr:\n");
-        parse_const(indent+2, s->expr->constant);
-        break;
+        r = parse_const(indent+2, s->expr->constant);
+        l = get_tmp_var();
+        sprintf(tir, "%s = %s", l, r);
+        new_ir(IR_SINGLE);
+        return l;
     case EXPR_LVAL:
         DBGPRINT("lvalue expr:\n");
-        parse_lvalue(indent+2, s->expr->lvalue);
-        break;
+        l = parse_lvalue(indent+2, s->expr->lvalue);
+        return l;
     case EXPR_THIS:
         DBGPRINT("this pointer expr:\n");
-        break;
+        l = get_tmp_var();
+        sprintf(tir, "%s = $dx", l);
+        new_ir(IR_SINGLE);
+        return l;
     case EXPR_CALL:
         DBGPRINT("function call expr:\n");
         parse_call(indent+2, s->expr->call);
@@ -530,6 +560,7 @@ parseit(forstm)
     DBGPRINT("INIT:\n");
     parse_expr_or_not(indent+2, s->forstm->expr_or_not1);
     ind;
+    uint64_t loop_entery = current_func->ircount;
     DBGPRINT("COND:\n");
     parse_expr(indent+2, s->forstm->expr);
     ind;
@@ -671,7 +702,7 @@ parseit(funcdefine)
         new_func = malloc(sizeof(struct func_detail));
     current_func = new_func;
     new_func->generated = 1;
-    new_func->size = 0;
+    new_func->ircount = 0;
     if (!s->funcdefine->is_void)
     {
         DBGPRINT("function define:\n");
@@ -689,8 +720,9 @@ parseit(funcdefine)
     struct symhash *si;
     DPRINTSYM(si);
     parse_stmblock(indent+2, s->funcdefine->stmblock);
-    new_func->irlist = malloc(new_func->size);
-    memcpy(new_func->irlist, tirs, new_func->size);
+    new_func->size = new_func->ircount * sizeof(struct ir); //tmp
+    new_func->irlist = malloc(new_func->ircount * sizeof(struct ir));
+    memcpy(new_func->irlist, tirs, new_func->ircount * sizeof(struct ir));
     current = current->parent;
     if (current->scope != SCOPE_CLASS)
     {
@@ -905,8 +937,5 @@ parseit(program)
         parse_define(indent+2, i->define);
     }
     struct symhash *si;
-    for (si = *(root.table); si; si = si->hh.next)
-    {
-        DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
-    }
+    DPRINTSYM(si);
 }

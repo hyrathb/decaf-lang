@@ -48,6 +48,7 @@ struct func_detail
     uint8_t generated;
     uint64_t size;
     struct semantics *type;
+    uint64_t ircount;
     struct ir *irlist;
     uint64_t offset;
 };
@@ -104,7 +105,7 @@ uint64_t get_array_dims(struct type *type);
 #define parseit(sem) void parse_##sem(int indent, struct semantics *s)
 
 void parse_ident(int indent, struct semantics *s, int type);
-parseit(const);
+const char *parse_const(int indent, struct semantics *s);
 parseit(null);
 parseit(tformals);
 parseit(formals);
@@ -114,9 +115,9 @@ parseit(vardefine);
 parseit(vardefines);
 parseit(expr_with_comma);
 parseit(actuals);
-parseit(call);
-parseit(lvalue);
-parseit(expr);
+const char *parse_call(int indent, struct semantics *s);
+const char *parse_lvalue(int indent, struct semantics *s);
+const char *parse_expr(int indent, struct semantics *s);
 parseit(ifstm);
 parseit(whilestm);
 parseit(forstm);
