@@ -75,6 +75,7 @@ struct vtable
 struct class_detail
 {
     uint64_t vtable_size;
+    uint64_t *vtable;
     uint64_t size;
     struct class_detail *base;
     struct interface_details *interfaces;
@@ -128,9 +129,9 @@ parseit(stm);
 parseit(stms);
 parseit(stmblock);
 parseit(funcdefine);
-void parse_funcdefine_reg_only(int indent, struct semantics *s, struct class_detail *class);
-void parse_field(int indent, struct semantics *s, int no_func, struct class_detail *class);
-void parse_fields(int indent, struct semantics *s, int no_func, struct class_detail *class);
+parseit(funcdefine_reg_only)
+void parse_field(int indent, struct semantics *s, int no_func);
+void parse_fields(int indent, struct semantics *s, int no_func);
 parseit(extend);
 parseit(ident_with_comma);
 parseit(implement);

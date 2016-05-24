@@ -7,6 +7,9 @@
 static struct symhash *roothash=NULL;
 static struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
 static struct symres *current=&root;
+static struct class_detail *current_class = NULL;
+static struct func_detail *current_func = NULL;
+static struct irlist tirs[2048];
 
 #define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
                       nt->table = malloc(sizeof(struct symhash *)); \
@@ -611,11 +614,11 @@ parseit(stmblock)
     parse_stms(indent+2, s->stmblock->stms);
 }
 
-void parse_funcdefine_reg_only(int indent, struct semantics *s, struct class_detail *class)
+void parse_funcdefine_reg_only(int indent, struct semantics *s)
 {
     in;
     struct func_detail *new_func = malloc(sizeof(struct func_detail));
-    struct symhash *override = sym_class_get(class, s->funcdefine->id->text);
+    struct symhash *override = sym_class_get(current_class, s->funcdefine->id->text);
     new_func->generated = 0;
     if (override)
     {
@@ -626,12 +629,12 @@ void parse_funcdefine_reg_only(int indent, struct semantics *s, struct class_det
     else
     {
         new_func->override = 0;
-        if (class->base)
-            new_func->offset = class->base->vtable_size + current->current_func_offset;
+        if (current_class->base)
+            new_func->offset = current_class->base->vtable_size + current->current_func_offset;
         else
             new_func->offset = current->current_func_offset;
         current->current_func_offset += PSIZE;
-        class->vtable_size += PSIZE;
+        current_class->vtable_size += PSIZE;
     }
     sym_add(current, s->funcdefine->id->text, D_FUNCTION, new_func);
 }
@@ -653,6 +656,7 @@ parseit(funcdefine)
     }    
     else
         new_func = malloc(sizeof(struct func_detail));
+    current_func = new_func;
     new_func->generated = 1;
     if (!s->funcdefine->is_void)
     {
@@ -682,16 +686,22 @@ parseit(funcdefine)
         DBGPRINT("name %s, type %d, detail %p.\n", si->name, si->type, si->detail);
     }
     DBGPRINT("\n");
+    new_func->irlist = malloc(new_func->size);
+    memcpy(new_func->irlist, tirs, new_func->size);
     current = current->parent->parent;
     if (current->scope != SCOPE_CLASS)
     {
-        new_func->offset = current->current_func_offset;
-        current->current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
-        sym_add(current, s->funcdefine->id->text, D_FUNCTION, new_func);
+        new_func->offset = root.current_func_offset;
+        sym_add(&root, s->funcdefine->id->text, D_FUNCTION, new_func);
     }
+    else
+    {
+        current_class->vtable[new_func->offset/PSIZE] = root.current_func_offset;
+    }
+    root.current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
 }
 
-void parse_field(int indent, struct semantics *s, int no_func, struct class_detail *class)
+void parse_field(int indent, struct semantics *s, int no_func)
 {
     ind;
     if (no_func)
@@ -699,19 +709,21 @@ void parse_field(int indent, struct semantics *s, int no_func, struct class_deta
         if (s->field->is_vardefine)
             parse_vardefine(indent+2, s->field->vardefine);
         else
-            parse_funcdefine_reg_only(indent+2, s->field->funcdefine, class);
+            parse_funcdefine_reg_only(indent+2, s->field->funcdefine);
     }
     else if(!s->field->is_vardefine)
+    {
         parse_funcdefine(indent+2, s->field->funcdefine);
+    }
 }
 
-void parse_fields(int indent, struct semantics *s, int no_func, struct class_detail *class)
+void parse_fields(int indent, struct semantics *s, int no_func)
 {
     in;
     struct fields *i;
     for (i=s->fields; i; i=i->next)
     {
-        parse_field(indent, i->field, no_func, class);
+        parse_field(indent, i->field, no_func);
     }
 }
 
@@ -788,6 +800,7 @@ parseit(classdefine)
     DBGPRINT("class define:\n");
     parse_ident(indent+2, s->classdefine->id, 0);
     struct class_detail *new_class=malloc(sizeof(struct class_detail));
+    current_class = new_class;
     if (s->classdefine->extend && s->classdefine->extend->extend && s->classdefine->extend->extend->id)
     {
         struct symhash *r = sym_get(current, s->classdefine->extend->extend->id->text);
@@ -807,9 +820,12 @@ parseit(classdefine)
     new_field(SCOPE_CLASS);
     new_class->vtable_size = 0;
     new_class->env = current;
-    parse_fields(indent+2, s->classdefine->fields, 1, new_class);
+    parse_fields(indent+2, s->classdefine->fields, 1);
     new_class->size = current->current_var_offset + new_class->vtable_size;
-    parse_fields(indent+2, s->classdefine->fields, 0, new_class);
+    new_class->vtable = malloc(new_class->vtable_size);
+    if (new_class->base)
+        memcpy(new_class->vtable, new_class->base->vtable, new_class->base->vtable_size);
+    parse_fields(indent+2, s->classdefine->fields, 0);
     struct symhash *si;
     for (si = *(current->table); si; si = si->hh.next)
     {
