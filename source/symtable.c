@@ -33,11 +33,18 @@ int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
     return 0;
 }
 
-struct symhash *sym_get_no_recursive(struct symres *table, const char *i)
+struct symhash *sym_class_get(struct class_detail *class, const char *i)
 {
     struct symhash *n;
-    HASH_FIND_STR(*(table->table), i, n);
-    return n;
+    while (class)
+    {
+        struct symres *table = class->env;
+        HASH_FIND_STR(*(table->table), i, n);
+        if (n)
+            return n;
+        class = class->base;
+    }
+    return NULL;
 }
 
 struct symhash *sym_get(struct symres *table, const char *i)
@@ -52,6 +59,28 @@ struct symhash *sym_get(struct symres *table, const char *i)
     }
     return NULL;
 }
+
+struct symhash *sym_get_no_recursive(struct symres *table, const char *i)
+{
+    struct symhash *n;
+    HASH_FIND_STR( *(table->table), i, n);
+    return n;
+}
+
+struct class_detail *sym_get_class(struct class_detail *class, const char *i)
+{
+    struct symhash *n;
+    while (class)
+    {
+        struct symres *table = class->env;
+        HASH_FIND_STR(*(table->table), i, n);
+        if (n)
+            return class;
+        class = class->base;
+    }
+    return NULL;
+}
+
 
 uint64_t base_size(struct class_detail *base)
 {
@@ -120,6 +149,7 @@ void parse_ident(int indent, struct semantics *s, int type)
     {
         struct symhash *r = sym_get(current, s->text);
         if (r)
+        {
             switch(r->type)
             {
             case D_INT:
@@ -149,6 +179,8 @@ void parse_ident(int indent, struct semantics *s, int type)
             default:
                 DBGPRINT("identifier: %s\n", s->text);
             }
+            return;
+        }
         else
             WPRINT("Fatal: Unknown identifier %s\n", s->text);
     }
@@ -260,6 +292,8 @@ parseit(var)
         break;
     case D_CLASS:
         new_var->class = get_array_class(s->var->type->vtype);
+        if (!new_var->class)
+            return;
         new_var->size = new_var->class->size;
         break;
     default:
@@ -577,10 +611,49 @@ parseit(stmblock)
     parse_stms(indent+2, s->stmblock->stms);
 }
 
+void parse_funcdefine_reg_only(int indent, struct semantics *s, struct class_detail *class)
+{
+    in;
+    struct func_detail *new_func = malloc(sizeof(struct func_detail));
+    struct symhash *override = sym_class_get(class, s->funcdefine->id->text);
+    new_func->generated = 0;
+    if (override)
+    {
+        new_func->override = 1;
+        new_func->offset = ((struct func_detail *)override->detail)->offset;
+        
+    }
+    else
+    {
+        new_func->override = 0;
+        if (class->base)
+            new_func->offset = class->base->vtable_size + current->current_func_offset;
+        else
+            new_func->offset = current->current_func_offset;
+        current->current_func_offset += PSIZE;
+        class->vtable_size += PSIZE;
+    }
+    sym_add(current, s->funcdefine->id->text, D_FUNCTION, new_func);
+}
+
 parseit(funcdefine)
 {
     ind;
-    struct func_detail *new_func = malloc(sizeof(struct func_detail));
+    struct func_detail *new_func;
+    struct symhash *r = sym_get_no_recursive(current, s->funcdefine->id->text);
+    if (r)
+    {
+        if (r->type == D_FUNCTION)
+            new_func = r->detail;
+        else
+        {
+            ERRPRINT("%s is not a function.\n", s->funcdefine->id->text);
+            return;
+        }
+    }    
+    else
+        new_func = malloc(sizeof(struct func_detail));
+    new_func->generated = 1;
     if (!s->funcdefine->is_void)
     {
         DBGPRINT("function define:\n");
@@ -599,38 +672,44 @@ parseit(funcdefine)
     new_field(SCOPE_LOCAL);
     parse_stmblock(indent+2, s->funcdefine->stmblock);
     current = current->parent->parent;
-    new_func->offset = current->current_func_offset;
-    current->current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
-    sym_add(current, s->funcdefine->id->text, D_FUNCTION, new_func);
+    if (current->scope != SCOPE_CLASS)
+    {
+        new_func->offset = current->current_func_offset;
+        current->current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
+        sym_add(current, s->funcdefine->id->text, D_FUNCTION, new_func);
+    }
 }
 
-void parse_field(int indent, struct semantics *s, int no_func)
+void parse_field(int indent, struct semantics *s, int no_func, struct class_detail *class)
 {
-    in;
-    //DBGPRINT("class field:\n");
-    if (s->field->is_vardefine && no_func)
+    ind;
+    DBGPRINT("class field:\n");
+    if (no_func)
     {
-        parse_vardefine(indent, s->field->vardefine);
+        if (s->field->is_vardefine)
+            parse_vardefine(indent+2, s->field->vardefine);
+        else
+            parse_funcdefine_reg_only(indent+2, s->field->funcdefine, class);
     }
-    else if (!s->field->is_vardefine && !no_func)
-    {
-        parse_funcdefine(indent, s->field->funcdefine);
-    }
+    else if(!s->field->is_vardefine)
+        parse_funcdefine(indent+2, s->field->funcdefine);
 }
 
-void parse_fields(int indent, struct semantics *s, int no_func)
+void parse_fields(int indent, struct semantics *s, int no_func, struct class_detail *class)
 {
     in;
     struct fields *i;
     for (i=s->fields; i; i=i->next)
     {
-        parse_field(indent, i->field, no_func);
+        parse_field(indent, i->field, no_func, class);
     }
 }
 
 parseit(extend)
 {
     ind;
+    if (!(s->extend && s->extend->id))
+        return;
     DBGPRINT("class extends:\n");
     parse_ident(indent+2, s->extend->id, 1);
 }
@@ -652,7 +731,46 @@ parseit(implement)
     parse_id_with_comma(indent+2 ,s->implement->id_with_comma);
 }
 
-/*******TO DO: NEED TWO ROUND: THE FIRST TO ACQUIRE ALL IDENTIFIER, FUNCTION AND VTABLE; THE SECOND TO GENERATE CODE FOR FUNCTION****************/
+struct interface_details *get_implements(struct semantics *s)
+{
+    if (!s->implement->id_with_comma)
+        return NULL;
+    struct id_with_comma *i = s->implement->id_with_comma->id_with_comma;
+    struct interface_details *ret = NULL;
+    if (i)
+    {
+        ret = malloc(sizeof(struct interface_details));
+        struct symhash *r = sym_get(current, i->id->text);
+        if (r && r->type == D_INTERFACE)
+            ret->detail = r->detail;
+        else
+        {
+            ERRPRINT("interface %s not defined.\n", i->id->text);
+            free(ret);
+            return NULL;
+        }
+        ret->next = NULL;
+        i = i->next;
+    }
+    while (i)
+    {
+        struct interface_details *next_ret = malloc(sizeof(struct interface_details));
+        struct symhash *r = sym_get(current, i->id->text);
+        if (r && r->type == D_INTERFACE)
+            next_ret->detail = r->detail;
+        else
+        {
+            ERRPRINT("interface %s not defined.\n", i->id->text);
+            free(next_ret);
+            return ret;
+        }
+        next_ret->next = ret->next;
+        ret->next = next_ret;
+        i = i->next;
+    }
+    return ret;
+}
+
 
 parseit(classdefine)
 {
@@ -660,11 +778,30 @@ parseit(classdefine)
     DBGPRINT("class define:\n");
     parse_ident(indent+2, s->classdefine->id, 0);
     struct class_detail *new_class=malloc(sizeof(struct class_detail));
+    if (s->classdefine->extend && s->classdefine->extend->extend && s->classdefine->extend->extend->id)
+    {
+        struct symhash *r = sym_get(current, s->classdefine->extend->extend->id->text);
+        if (r->type == D_TYPE)
+            new_class->base = r->detail;
+        else
+        {
+            ERRPRINT("class %s not defined.\n", s->classdefine->extend->extend->id->text);
+            new_class->base = NULL;
+        }
+    }
+    else
+        new_class->base = NULL;
     parse_extend(indent+2, s->classdefine->extend);
+    new_class->interfaces = get_implements(s->classdefine->implement);
     parse_implement(indent+2, s->classdefine->implement);
-    parse_fields(indent+2, s->classdefine->fields, 1);
-    parse_fields(indent+2, s->classdefine->fields, 0);
-    sym_add(current, s->classdefine->id->text, D_TYPE, 0);
+    new_field(SCOPE_CLASS);
+    new_class->vtable_size = 0;
+    new_class->env = current;
+    parse_fields(indent+2, s->classdefine->fields, 1, new_class);
+    new_class->size = current->current_var_offset + new_class->vtable_size;
+    parse_fields(indent+2, s->classdefine->fields, 0, new_class);
+    current = current->parent;
+    sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
 }
 
 parseit(protype)

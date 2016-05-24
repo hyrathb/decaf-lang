@@ -7,14 +7,17 @@
 
 #define YYSTYPE struct semantics*
 
+#define PSIZE 8
+
 #define INTSIZE 4
 #define BOOLSIZE 1
 #define DOUBLESIZE 8
-#define STRINGSIZE 8
+#define STRINGSIZE PSIZE
 #define ROUNDSIZE 4
 
 enum decaf_type
 {
+    D_ANY,
     D_INT,
     D_BOOL,
     D_DOUBLE,
