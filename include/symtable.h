@@ -9,9 +9,11 @@
 #ifdef DEBUG
 #define DBGPRINT(fmt, ...)   printf(fmt, ##__VA_ARGS__)
 #define PUTCHAR(c) putchar(c)
+#define mfree(x)
 #else
 #define DBGPRINT(fmt, ...)
 #define PUTCHAR(c)
+#define mfree(x) free(x)
 #endif
 
 #define WPRINT(fmt, ...)  fprintf(stderr, "WARNING: "); fprintf(stderr, fmt, ##__VA_ARGS__)
@@ -47,7 +49,9 @@ struct func_detail
     uint8_t override;
     uint8_t generated;
     uint64_t size;
+    uint64_t stacksize;
     struct semantics *type;
+    symres *formals;
     uint64_t ircount;
     struct ir *irlist;
     uint64_t offset;

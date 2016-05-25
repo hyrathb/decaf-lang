@@ -9,11 +9,13 @@
 
 #define PSIZE 8
 
-#define INTSIZE 4
-#define BOOLSIZE 1
-#define DOUBLESIZE 8
+#define INTSIZE PSIZE
+#define BOOLSIZE PSIZE
+#define DOUBLESIZE PSIZE
 #define STRINGSIZE PSIZE
-#define ROUNDSIZE 4
+#define ROUNDSIZE PSIZE
+
+struct class_detail;
 
 enum decaf_type
 {
@@ -158,9 +160,12 @@ struct lvalue
         LVAL_MEMBER,
         LVAL_ARRAY
     } lvalue_type;
+    enum decaf_type t;
+    enum decaf_type bt;
+    struct class_detail *class;
+    struct semantics *lvalue;
     struct semantics *id;
-    struct semantics *expr1;
-    struct semantics *expr2;
+    struct semantics *expr;
 };
 
 struct expr
@@ -193,6 +198,9 @@ struct expr
         EXPR_NEWARRAY
         
     } expr_type;
+    enum decaf_type t;
+    enum decaf_type bt;
+    struct class_detail *class;
     struct semantics *constant;
     struct semantics *lvalue;
     struct semantics *expr1;
@@ -404,6 +412,11 @@ struct semantics
     };
 };
 
-
+struct stringlist
+{
+    const char *s;
+    uint64_t i;
+    struct stringlist *next;
+};
 
 #endif

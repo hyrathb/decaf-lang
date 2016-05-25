@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static struct symhash *roothash=NULL;
-static struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
+struct symhash *roothash=NULL;
+struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
+struct stringlist slist = {NULL, 0, NULL}, *stringlist = &slist;
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
 static struct func_detail *current_func = NULL;
@@ -39,13 +40,17 @@ static struct ir tirs[2048];
 #define DPRINTSYM(x)
 #endif
 
-/*******NOT NEED TO BE FREED*******/
+/*******NEED TO BE FREED*******/
 const char *get_tmp_var()
 {
     static uint64_t i=0;
     static char tmpname[20];
-    sprintf(tmpname, "t%lu", i);
-    return tmpname;
+    char *s;
+    sprintf(tmpname, "!%lu", i);
+    s = malloc(strlen(tmpname) + 1);
+    strcpy(s, tmpname);
+    current_func->stacksize += PSIZE;
+    return s;
 }
                       
 int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d)
@@ -257,7 +262,10 @@ parseit(formals)
     if (s->formals->tformals && current->scope == SCOPE_FORMAL)
     {
         for (i=s->formals->tformals->tformals; i; i=i->next)
+        {
             parse_var(indent+2, i->var);
+            current_func->stacksize += PSIZE;
+        }
     }
 }
 
@@ -348,7 +356,10 @@ parseit(vardefines)
     ind;
     DBGPRINT("var define section:\n");
     for (i=s->vardefines; i; i=i->next)
+    {
         parse_vardefine(indent+2, i->vardefine);
+        current_func->stacksize += PSIZE;
+    }
 }
 
 parseit(expr_with_comma)
@@ -372,7 +383,7 @@ const char *parse_call(int indent, struct semantics *s)
     if (s->call->is_member)
     {
         DBGPRINT("member function call:\n");
-        parse_expr(indent+2, s->call->expr);
+        parse_lvalue(indent+2, s->call->lvalue);
         parse_ident(indent+2, s->call->id, 1);
         parse_actuals(indent+2, s->call->actuals);
     }
@@ -387,21 +398,69 @@ const char *parse_call(int indent, struct semantics *s)
 const char *parse_lvalue(int indent, struct semantics *s)
 {
     ind;
+    const char *l, *tl, *r, *r2;
+    struct symhash *id;
+    struct var_detail *detail;
     switch (s->lvalue->lvalue_type)
     {
     case LVAL_IDENT:
         DBGPRINT("identifier as lvalue: \n");
         parse_ident(indent+2, s->lvalue->id, 1);
-        break;
+        id = sym_get(current, s->lvalue->id->text);
+        detail = (struct var_detail *)id->detail;
+        s->lvalue->t = detail->is_array?D_ARRAY:detail->type;
+        s->lvalue->bt = detail->type;
+        s->lvalue->class = detail->class;
+        l = malloc(strlen(s->lvalue->id->text) + 1);
+        strcpy(l, s->lvalue->id->text);
+        return l;
     case LVAL_MEMBER:
         DBGPRINT("member as lvalue: \n");
-        parse_expr(indent+2, s->lvalue->expr1);
+        r = parse_lvalue(indent+2, s->lvalue->lvalue);
+        if (s->lvalue->lvalue->lvalue->t != D_CLASS)
+            ERRPRINT("Not a class.\n");
         parse_ident(indent+2, s->lvalue->id, 1);
-        break;
+        detail = sym_class_get(s->lvalue->lvalue->lvalue->class, s->lvalue->id->text)->detail;
+        
+        s->lvalue->t = detail->is_array?D_ARRAY:detail->type;
+        s->lvalue->bt = detail->type;
+        s->lvalue->class = detail->class;
+        
+        r2 = get_tmp_var();
+        sprintf(tir, "%s %s %s +", r2, r, s->lvalue->lvalue->lvalue->class->vtable_size + detail->offset);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        l = malloc(strlen(r2) + 2);
+        l[0] = '*';
+        l[1] = 0;
+        strcat(l, r2);
+        free(r2);
+        return l;
     case LVAL_ARRAY:
         DBGPRINT("array elem as lvalue: \n");
-        parse_expr(indent+2, s->lvalue->expr1);
-        parse_expr(indent+2, s->lvalue->expr2);
+        r = parse_lvalue(indent+2, s->lvalue->lvalue);
+        r2 = parse_expr(indent+2, s->lvalue->expr);
+        
+        if (s->lvalue->lvalue->lvalue->t != D_ARRAY)
+            ERRPRINT("Not an array.\n");
+        
+        s->lvalue->t = s->lvalue->lvalue->lvalue->bt;
+        s->lvalue->bt = s->lvalue->bt;
+        s->lvalue->class = s->lvalue->lvalue->lvalue->class;
+        
+        s->lvalue
+        
+        tl = get_tmp_var();
+        sprintf(tir, "%s %s %s +", tl, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        l = malloc(strlen(tl) + 2);
+        l[0] = '*';
+        l[1] = 0;
+        strcat(l, tl);
+        free(tl);
+        return l;
     }
 }
 
@@ -415,15 +474,13 @@ const char *parse_expr(int indent, struct semantics *s)
         DBGPRINT("assign expr:\n");
         l= parse_lvalue(indent+2, s->expr->lvalue);
         r = parse_expr(indent+2, s->expr->expr1);
-        sprintf(tir, "%s = %s", l, r);
+        sprintf(tir, "%s %s =", l, r);
         new_ir(IR_SINGLE);
+        mfree(r);
         return l;
     case EXPR_CONST:
         DBGPRINT("const expr:\n");
-        r = parse_const(indent+2, s->expr->constant);
-        l = get_tmp_var();
-        sprintf(tir, "%s = %s", l, r);
-        new_ir(IR_SINGLE);
+        l = parse_const(indent+2, s->expr->constant);
         return l;
     case EXPR_LVAL:
         DBGPRINT("lvalue expr:\n");
@@ -431,103 +488,192 @@ const char *parse_expr(int indent, struct semantics *s)
         return l;
     case EXPR_THIS:
         DBGPRINT("this pointer expr:\n");
-        l = get_tmp_var();
-        sprintf(tir, "%s = $dx", l);
-        new_ir(IR_SINGLE);
+        l = malloc(strlen("#dx") + 1);
+        strcpy(l, "#dx");
         return l;
     case EXPR_CALL:
         DBGPRINT("function call expr:\n");
-        parse_call(indent+2, s->expr->call);
-        break;
+        l = parse_call(indent+2, s->expr->call);
+        return l;
     case EXPR_PRIORITY:
         DBGPRINT("(expr):\n");
-        parse_expr(indent+2, s->expr->expr1);
-        break;
+        l = parse_expr(indent+2, s->expr->expr1);
+        return l;
     case EXPR_PLUS:
         DBGPRINT("+ expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s +", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_MINUS:
         DBGPRINT("- expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s -", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_MUL:
         DBGPRINT("* expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s *", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_DIV:
         DBGPRINT("/ expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s /", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_IDIV:
         PUTCHAR('%');
         DBGPRINT(" expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s %%", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_LT:
         DBGPRINT("< expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s <", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_LE:
         DBGPRINT("<= expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s <=", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_GT:
         DBGPRINT("> expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s >", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_GE:
         DBGPRINT(">= expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s >=", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_EQU:
         DBGPRINT("== expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s ==", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_NE:
         DBGPRINT("!= expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s !=", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_AND:
         DBGPRINT("&& expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s &&", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_OR:
         DBGPRINT("|| expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_expr(indent+2, s->expr->expr2);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        r2 = parse_expr(indent+2, s->expr->expr2);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s %s ||", l, r, r2);
+        new_ir(IR_DOUBLE);
+        mfree(r);
+        mfree(r2);
+        return l;
     case EXPR_NOT:
         DBGPRINT("! expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        break;
+        r = parse_expr(indent+2, s->expr->expr1);
+        l = get_tmp_var();
+        sprintf(tir, "%s %s !", l, r);
+        new_ir(IR_SINGLE);
+        mfree(r);
+        return l;
     case EXPR_READINTEGER:
         DBGPRINT("read integer expr:\n");
-        break;
+        l = malloc(strlen("$readinteger") + 1);
+        strcpy(l, "$readinteger");
+        return l;
     case EXPR_READLINE:
         DBGPRINT("read line expr:\n");
-        break;
+        l = malloc(strlen("$readline") + 1);
+        strcpy(l, "$readline");
+        return l;
     case EXPR_NEW:
         DBGPRINT("new expr:\n");
         parse_ident(indent+2, s->expr->id, 1);
-        break;
+        l = get_tmp_var();
+        sprintf(tir, "%s %d %s #1", l, D_TYPE, s->expr->id);
+        new_ir(IR_NEW);
+        return l;
     case EXPR_NEWARRAY:
         DBGPRINT("newarray expr:\n");
-        parse_expr(indent+2, s->expr->expr1);
-        parse_type(indent+2, s->expr->id);
-        break;
+        l = get_tmp_var();
+        r = parse_expr(indent+2, s->expr->expr1);
+        parse_type(indent+2, s->expr->type);
+        int btype = get_basic_type(s->expr->type->vtype);
+        if (btype == D_TYPE)
+        {
+            struct type *t = s->expr->type->vtype;
+            while (t->btype == D_ARRAY)
+                t = t->arr_type->vtype;
+            sprintf(tir, "%s %d %s %s", l, D_TYPE, t->id->text, r);
+        }
+        else
+        {
+            sprintf(tir, "%s %d %s", l, btype, r);
+        }
+        new_ir(IR_NEW);
+        return l;
     }
 }
 
@@ -716,6 +862,8 @@ parseit(funcdefine)
     }
     parse_ident(indent+2, s->funcdefine->id, 0);
     new_field(SCOPE_FORMAL);
+    new_func->formals = current;
+    new_func->stacksize = 0;
     parse_formals(indent+2, s->funcdefine->formals);
     struct symhash *si;
     DPRINTSYM(si);

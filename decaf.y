@@ -93,14 +93,14 @@ actuals :
 call :
     TIDENT TOLB actuals TORB {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=0; $$->call->expr = NULL; $$->call->id = $1; $$->call->actuals=$3;}
     |
-    expr TPPOINT TIDENT TOLB actuals TORB {$$=new_node; $3->type_ok=1; $3->type=C_IDENT;  $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=1; $$->call->expr = $1; $$->call->id = $3; $$->call->actuals=$5;};
+    lvalue TPPOINT TIDENT TOLB actuals TORB {$$=new_node; $3->type_ok=1; $3->type=C_IDENT;  $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=1; $$->call->lvalue = $1; $$->call->id = $3; $$->call->actuals=$5;};
 
 lvalue :
-    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_IDENT; $$->lvalue->id = $1; $$->lvalue->expr1 = NULL; $$->lvalue->expr2=NULL;}
+    TIDENT {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_IDENT; $$->lvalue->id = $1; $$->lvalue->expr = NULL;}
     |
-    expr TPPOINT TIDENT {$$=new_node; $3->type_ok=1; $3->type=C_IDENT; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_MEMBER; $$->lvalue->id = $3; $$->lvalue->expr1 = $1; $$->lvalue->expr2=NULL;}
+    lvalue TPPOINT TIDENT {$$=new_node; $3->type_ok=1; $3->type=C_IDENT; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_MEMBER; $$->lvalue->lvalue = $1; $$->lvalue->id = $3; $$->lvalue->expr = NULL;}
     |
-    expr TOLSB expr TORSB {$$=new_node; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_ARRAY; $$->lvalue->id = NULL; $$->lvalue->expr1 = $1; $$->lvalue->expr2=$3;};
+    lvalue TOLSB expr TORSB {$$=new_node; $$->type=C_LVALUE; $$->lvalue=malloc(sizeof(struct lvalue)); $$->lvalue->lvalue_type=LVAL_ARRAY; $$->lvalue->id = NULL; $$->lvalue->lvalue = $1; $$->lvalue->expr=$3;};
     
 expr :               /*NEED TO CHECK TYPE*/
     lvalue TOASSIGN expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_ASSIGN; $$->expr->constant= NULL; $$->expr->lvalue=$1; $$->expr->expr1=$3; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
