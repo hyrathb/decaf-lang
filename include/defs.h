@@ -147,7 +147,7 @@ struct actuals
 struct call
 {
     uint8_t is_member;
-    struct semantics *expr;
+    struct semantics *lvalue;
     struct semantics *id;
     struct semantics *actuals;
 };

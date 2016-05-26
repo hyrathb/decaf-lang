@@ -35,8 +35,8 @@ static struct ir tirs[2048];
 }
                             
 #define set_check_type(a, x, y) {if (((x)->t != (y)->t) || ((x)->t == D_CLASS && ((y)->class) && (x)->class != (y)->class)) \
-                                ERRPRINT("Type Mismatch.")\
-                                set_type(a, x);
+                                ERRPRINT("Type Mismatch."); \
+                                set_type(a, x); \
 }
 
 #ifdef SYMDEBUG
@@ -51,7 +51,7 @@ static struct ir tirs[2048];
 #endif
 
 /*******NEED TO BE FREED*******/
-const char *get_tmp_var()
+char *get_tmp_var()
 {
     static uint64_t i=0;
     static char tmpname[20];
@@ -248,9 +248,11 @@ void parse_ident(int indent, struct semantics *s, int type)
     }
 }
 
-const char *parse_const(int indent, struct semantics *s)
+char *parse_const(int indent, struct semantics *s)
 {
-    ind;
+    if (!s)
+        return NULL;
+    printindent(indent);
     char *l = NULL;
     switch (s->type)
     {
@@ -278,7 +280,7 @@ const char *parse_const(int indent, struct semantics *s)
         new_string->s = s->s_val;
         new_string->i = stringlist->i;
         ++stringlist->i;
-        new_string->next = stringlsit->next;
+        new_string->next = stringlist->next;
         stringlist->next = new_string;
         sprintf(tir, "$s%lu", new_string->i);
         l = malloc(strlen(tir) + 1);
@@ -440,21 +442,27 @@ void parse_actuals(int indent, struct semantics *s, int arg)
     }
 }
 
-const char *parse_call(int indent, struct semantics *s, struct semantics *expr)
+char *parse_call(int indent, struct semantics *s, struct semantics *expr)
 {
-    ind;
+    if (!s)
+        return NULL;
+    printindent(indent);
     struct symhash *sym;
-    struct func_detail *detail;
-    char *l, *r, *r2;
+    char *l, *r=NULL;
     int is_member;
     if (s->call->is_member)
     {
         r = parse_lvalue(indent+2, s->call->lvalue);
         is_member = 1;
         if (s->call->lvalue->lvalue->t != D_CLASS)
+        {
             ERRPRINT("Requesting member from a non-class object.\n");
+            sym = NULL;
+        }
         else
+        {
             sym = sym_class_get(s->call->lvalue->lvalue->class, s->call->id->text);
+        }
     }
     else
     {
@@ -471,8 +479,8 @@ const char *parse_call(int indent, struct semantics *s, struct semantics *expr)
     if (sym)
     {
         struct func_detail *detail = sym->detail;
-        struct type *t = detail->type->type;
-        expr->expr->t = type->is_array?D_ARRAY:type->btype;
+        struct type *t = detail->type->vtype;
+        expr->expr->t = t->is_array?D_ARRAY:t->btype;
         expr->expr->bt = get_basic_type(t);
         if (expr->expr->bt == D_TYPE)
         {
@@ -491,7 +499,7 @@ const char *parse_call(int indent, struct semantics *s, struct semantics *expr)
                 sprintf(tir, "#0 %s =", r);
                 new_ir(IR_SINGLE);
                 l = get_tmp_var();
-                sprintf(tir, "%s %s $%d +", l, r, detail->offset);
+                sprintf(tir, "%s %s $%lu +", l, r, detail->offset);
                 new_ir(IR_DOUBLE);
                 sprintf(tir, "%s", l);
                 new_ir(IR_CALL_MEMBER);
@@ -512,9 +520,11 @@ const char *parse_call(int indent, struct semantics *s, struct semantics *expr)
     
 }
 
-const char *parse_lvalue(int indent, struct semantics *s)
+char *parse_lvalue(int indent, struct semantics *s)
 {
-    ind;
+    if (!s)
+        return NULL;
+    printindent(indent);
     char *l, *tl, *r, *r2;
     struct symhash *id;
     struct var_detail *detail;
@@ -546,7 +556,7 @@ const char *parse_lvalue(int indent, struct semantics *s)
         s->lvalue->class = detail->class;
         
         r2 = get_tmp_var();
-        sprintf(tir, "%s %s %s +", r2, r, s->lvalue->lvalue->lvalue->class->vtable_size + detail->offset);
+        sprintf(tir, "%s %s $%lu +", r2, r, s->lvalue->lvalue->lvalue->class->vtable_size + detail->offset);
         new_ir(IR_DOUBLE);
         mfree(r);
         l = malloc(strlen(r2) + 2);
@@ -567,8 +577,6 @@ const char *parse_lvalue(int indent, struct semantics *s)
         s->lvalue->bt = s->lvalue->bt;
         s->lvalue->class = s->lvalue->lvalue->lvalue->class;
         
-        s->lvalue
-        
         tl = get_tmp_var();
         sprintf(tir, "%s %s %s +", tl, r, r2);
         new_ir(IR_DOUBLE);
@@ -580,12 +588,16 @@ const char *parse_lvalue(int indent, struct semantics *s)
         strcat(l, tl);
         free(tl);
         return l;
+    default:
+        return NULL;
     }
 }
 
-const char *parse_expr(int indent, struct semantics *s)
+char *parse_expr(int indent, struct semantics *s)
 {
-    ind;
+    if (!s)
+        return NULL;
+    printindent(indent);
     char *l, *r, *r2;
     switch (s->expr->expr_type)
     {
@@ -606,7 +618,7 @@ const char *parse_expr(int indent, struct semantics *s)
         
         switch (s->expr->constant->type)
         {
-         case C_ICONST;
+            case C_ICONST:
             s->expr->t = D_INT;
             break;
         case C_BCONST:
@@ -644,7 +656,7 @@ const char *parse_expr(int indent, struct semantics *s)
         return l;
     case EXPR_CALL:
         DBGPRINT("function call expr:\n");
-        l = parse_call(indent+2, s->expr->call);
+        l = parse_call(indent+2, s->expr->call, s);
         return l;
     case EXPR_PRIORITY:
         DBGPRINT("(expr):\n");
@@ -859,7 +871,7 @@ const char *parse_expr(int indent, struct semantics *s)
         struct symhash *sym;
         parse_ident(indent+2, s->expr->id, 1);
         l = get_tmp_var();
-        sprintf(tir, "%s %d %s #1", l, D_TYPE, s->expr->id);
+        sprintf(tir, "%s %d %s #1", l, D_TYPE, s->expr->id->text);
         new_ir(IR_NEW);
         
         sym = sym_get(current, s->expr->id->text);
@@ -915,6 +927,8 @@ const char *parse_expr(int indent, struct semantics *s)
         }
         new_ir(IR_NEW);
         return l;
+    default:
+        return NULL;
     }
 }
 

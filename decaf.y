@@ -91,7 +91,7 @@ actuals :
     exprss {$$=new_node; $$->type=C_ACTUALS; $$->actuals=malloc(sizeof(struct actuals)); $$->actuals->expr_with_comma = $1;} ;
     
 call :
-    TIDENT TOLB actuals TORB {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=0; $$->call->expr = NULL; $$->call->id = $1; $$->call->actuals=$3;}
+    TIDENT TOLB actuals TORB {$$=new_node; $1->type_ok=1; $1->type=C_IDENT; $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=0; $$->call->lvalue = NULL; $$->call->id = $1; $$->call->actuals=$3;}
     |
     lvalue TPPOINT TIDENT TOLB actuals TORB {$$=new_node; $3->type_ok=1; $3->type=C_IDENT;  $$->type=C_CALL; $$->call=malloc(sizeof(struct call)); $$->call->is_member=1; $$->call->lvalue = $1; $$->call->id = $3; $$->call->actuals=$5;};
 
