@@ -16,8 +16,8 @@
 #define mfree(x) free(x)
 #endif
 
-#define WPRINT(fmt, ...)  fprintf(stderr, "WARNING: "); fprintf(stderr, fmt, ##__VA_ARGS__)
-#define ERRPRINT(fmt, ...)  fprintf(stderr, "ERROR: "); fprintf(stderr, fmt, ##__VA_ARGS__)
+#define WPRINT(fmt, ...)  {fprintf(stderr, "WARNING: "); fprintf(stderr, fmt, ##__VA_ARGS__);}
+#define ERRPRINT(fmt, ...)  {fprintf(stderr, "ERROR: "); fprintf(stderr, fmt, ##__VA_ARGS__);}
 
 struct symhash
 {

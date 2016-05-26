@@ -34,8 +34,8 @@ static struct ir tirs[2048];
                               a->class = x->class; \
 }
                             
-#define set_check_type(a, x, y) {if (((x)->t != (y)->t) || ((x)->t == D_CLASS && ((y)->class) && (x)->class != (y)->class)) \
-                                ERRPRINT("Type Mismatch."); \
+#define set_check_type(a, x, y) {if (((x)->t != (y)->t) || (((x)->t == D_CLASS) && ((y)->class) && ((x)->class != (y)->class))) \
+                                ERRPRINT("Type Mismatch %d, %d.\n", x->t, y->t); \
                                 set_type(a, x); \
 }
 
