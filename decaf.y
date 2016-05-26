@@ -42,7 +42,7 @@
 constant:
     TINTCONST{$$=new_node; $$->type = C_ICONST; $$->i_val=strtol($1->text, NULL, 0); free($1->text); free($1);} 
     | 
-    TDOUBLECONST {$$=new_node; $$->type = C_DCONST; $$->d_val=atof($1->text); free($1->text); free($1);}
+    TDOUBLECONST {$$=new_node; $$->type = C_DCONST; $$->d_val=strtof($1->text, NULL); free($1->text); free($1);}
     | 
     TBOOLCONST {$$=new_node; $$->type = C_ICONST; $$->i_val= !strcmp($1->text, "true"); free($1->text); free($1);}
     | 
@@ -117,9 +117,9 @@ expr :               /*NEED TO CHECK TYPE*/
     |
     expr TOPLUS expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_PLUS; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
-    expr TOMINUS expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_MINUS; $$->expr->constant= NULL; $$->expr->lvalue=$1; $$->expr->expr1=$3; $$->expr->expr2=NULL; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
+    expr TOMINUS expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_MINUS; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
-    expr TOMUL expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_MINUS; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
+    expr TOMUL expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_MUL; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
     expr TODIV expr {$$=new_node; $$->type=C_EXPR; $$->expr=malloc(sizeof(struct expr)); $$->expr->expr_type=EXPR_DIV; $$->expr->constant= NULL; $$->expr->lvalue=NULL; $$->expr->expr1=$1; $$->expr->expr2=$3; $$->expr->call=NULL; $$->expr->id=NULL; $$->expr->type=NULL;}
     |
