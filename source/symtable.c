@@ -1035,6 +1035,14 @@ parseit(whilestm)
     tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
     strcpy(tirs[loop_cond_end+1].code, tir);
     
+    uint64_t i;
+    for (i = loop_cond_end; i < loop_body_end; ++i)
+        if (tirs[i].type == IR_BREAK)
+        {
+            tirs[i].type = IR_J;
+            tirs[i].code = malloc(strlen(tir)+1);
+            strcpy(tirs[i].code, tir);
+        }
 }
 
 parseit(forstm)
@@ -1074,6 +1082,15 @@ parseit(forstm)
     tirs[loop_cond_end+1].env = current;
     tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
     strcpy(tirs[loop_cond_end+1].code, tir);
+    
+    uint64_t i;
+    for (i = loop_cond_end; i < loop_body_end; ++i)
+        if (tirs[i].type == IR_BREAK)
+        {
+            tirs[i].type = IR_J;
+            tirs[i].code = malloc(strlen(tir)+1);
+            strcpy(tirs[i].code, tir);
+        }
 }
 
 parseit(retstm)
