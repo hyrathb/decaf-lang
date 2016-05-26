@@ -119,7 +119,7 @@ parseit(vardefine);
 parseit(vardefines);
 parseit(expr_with_comma);
 parseit(actuals);
-const char *parse_call(int indent, struct semantics *s);
+const char *parse_call(int indent, struct semantics *s,struct semantics *expr);
 const char *parse_lvalue(int indent, struct semantics *s);
 const char *parse_expr(int indent, struct semantics *s);
 parseit(ifstm);

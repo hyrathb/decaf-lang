@@ -28,7 +28,17 @@ static struct ir tirs[2048];
                             tirs[current_func->ircount].code = malloc(strlen(tir) + 1); \
                             strcpy(tirs[current_func->ircount].code, tir); \
                             ++current_func->ircount;} 
-                      
+
+#define set_type(a, x)       {a->t = x->t; \
+                              a->bt = x->bt; \
+                              a->class = x->class; \
+}
+                            
+#define set_check_type(a, x, y) {if (((x)->t != (y)->t) || ((x)->t == D_CLASS && ((y)->class) && (x)->class != (y)->class)) \
+                                ERRPRINT("Type Mismatch.")\
+                                set_type(a, x);
+}
+
 #ifdef SYMDEBUG
 #define DPRINTSYM(x)  if (current->table)   \
                       {for (x = *(current->table); x; x = x->hh.next) \
@@ -377,7 +387,7 @@ parseit(actuals)
     parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
 }
 
-const char *parse_call(int indent, struct semantics *s)
+const char *parse_call(int indent, struct semantics *s, struct semantics *expr)
 {
     ind;
     if (s->call->is_member)
@@ -408,9 +418,11 @@ const char *parse_lvalue(int indent, struct semantics *s)
         parse_ident(indent+2, s->lvalue->id, 1);
         id = sym_get(current, s->lvalue->id->text);
         detail = (struct var_detail *)id->detail;
+        
         s->lvalue->t = detail->is_array?D_ARRAY:detail->type;
         s->lvalue->bt = detail->type;
         s->lvalue->class = detail->class;
+        
         l = malloc(strlen(s->lvalue->id->text) + 1);
         strcpy(l, s->lvalue->id->text);
         return l;
@@ -474,6 +486,9 @@ const char *parse_expr(int indent, struct semantics *s)
         DBGPRINT("assign expr:\n");
         l= parse_lvalue(indent+2, s->expr->lvalue);
         r = parse_expr(indent+2, s->expr->expr1);
+        
+        set_check_type(s->expr, s->expr->lvalue->lvalue, s->expr->expr1->expr);
+        
         sprintf(tir, "%s %s =", l, r);
         new_ir(IR_SINGLE);
         mfree(r);
@@ -481,15 +496,44 @@ const char *parse_expr(int indent, struct semantics *s)
     case EXPR_CONST:
         DBGPRINT("const expr:\n");
         l = parse_const(indent+2, s->expr->constant);
+        
+        switch (s->expr->constant->type)
+        {
+         case C_ICONST;
+            s->expr->t = D_INT;
+            break;
+        case C_BCONST:
+            s->expr->t = D_BOOL;
+            break;
+        case C_SCONST:
+            s->expr->t = D_STRING;
+            break;
+        case C_DCONST:
+            s->expr->t = D_DOUBLE;
+            break;
+        default:
+            s->expr->t = D_CLASS;
+        }
+        s->expr->bt = s->expr->t;
+        s->expr->class = NULL;
+        
         return l;
     case EXPR_LVAL:
         DBGPRINT("lvalue expr:\n");
         l = parse_lvalue(indent+2, s->expr->lvalue);
+        
+        set_type(s->expr, s->expr->lvalue->lvalue);
+        
         return l;
     case EXPR_THIS:
         DBGPRINT("this pointer expr:\n");
         l = malloc(strlen("#dx") + 1);
         strcpy(l, "#dx");
+        
+        s->expr->t = D_CLASS;
+        s->expr->bt = D_CLASS;
+        s->expr->class = current_class;
+        
         return l;
     case EXPR_CALL:
         DBGPRINT("function call expr:\n");
@@ -498,6 +542,9 @@ const char *parse_expr(int indent, struct semantics *s)
     case EXPR_PRIORITY:
         DBGPRINT("(expr):\n");
         l = parse_expr(indent+2, s->expr->expr1);
+        
+        set_type(s->expr, s->expr->expr1->expr);
+        
         return l;
     case EXPR_PLUS:
         DBGPRINT("+ expr:\n");
@@ -508,6 +555,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_MINUS:
         DBGPRINT("- expr:\n");
@@ -518,6 +568,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_MUL:
         DBGPRINT("* expr:\n");
@@ -528,6 +581,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_DIV:
         DBGPRINT("/ expr:\n");
@@ -538,6 +594,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_IDIV:
         PUTCHAR('%');
@@ -549,6 +608,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_LT:
         DBGPRINT("< expr:\n");
@@ -559,6 +621,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_LE:
         DBGPRINT("<= expr:\n");
@@ -569,6 +634,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_GT:
         DBGPRINT("> expr:\n");
@@ -579,6 +647,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_GE:
         DBGPRINT(">= expr:\n");
@@ -589,6 +660,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_EQU:
         DBGPRINT("== expr:\n");
@@ -599,6 +673,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_NE:
         DBGPRINT("!= expr:\n");
@@ -609,6 +686,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_AND:
         DBGPRINT("&& expr:\n");
@@ -619,6 +699,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_OR:
         DBGPRINT("|| expr:\n");
@@ -629,6 +712,9 @@ const char *parse_expr(int indent, struct semantics *s)
         new_ir(IR_DOUBLE);
         mfree(r);
         mfree(r2);
+        
+        set_check_type(s->expr, s->expr->expr1->expr, s->expr->expr2->expr);
+        
         return l;
     case EXPR_NOT:
         DBGPRINT("! expr:\n");
@@ -637,23 +723,53 @@ const char *parse_expr(int indent, struct semantics *s)
         sprintf(tir, "%s %s !", l, r);
         new_ir(IR_SINGLE);
         mfree(r);
+        
+        set_type(s->expr, s->expr->expr1->expr);
+        
         return l;
     case EXPR_READINTEGER:
         DBGPRINT("read integer expr:\n");
         l = malloc(strlen("$readinteger") + 1);
         strcpy(l, "$readinteger");
+        
+        s->expr->t = D_INT;
+        s->expr->bt = D_INT;
+        s->expr->class = NULL;
+        
         return l;
     case EXPR_READLINE:
         DBGPRINT("read line expr:\n");
         l = malloc(strlen("$readline") + 1);
         strcpy(l, "$readline");
+        
+        s->expr->t = D_STRING;
+        s->expr->bt = D_STRING;
+        s->expr->class = NULL;
+        
         return l;
     case EXPR_NEW:
         DBGPRINT("new expr:\n");
+        struct symhash *sym;
         parse_ident(indent+2, s->expr->id, 1);
         l = get_tmp_var();
         sprintf(tir, "%s %d %s #1", l, D_TYPE, s->expr->id);
         new_ir(IR_NEW);
+        
+        sym = sym_get(current, s->expr->id->text);
+        if (!sym || sym->type != D_TYPE)
+        {
+            ERRPRINT("%s is not a class type.\n", s->expr->id->text);
+            s->expr->t = D_CLASS;
+            s->expr->bt = D_CLASS;
+            s->expr->class = NULL; 
+        }
+        else
+        {
+            s->expr->t = D_CLASS;
+            s->expr->bt = D_CLASS;
+            s->expr->class = sym->detail;
+        }
+        
         return l;
     case EXPR_NEWARRAY:
         DBGPRINT("newarray expr:\n");
@@ -667,10 +783,28 @@ const char *parse_expr(int indent, struct semantics *s)
             while (t->btype == D_ARRAY)
                 t = t->arr_type->vtype;
             sprintf(tir, "%s %d %s %s", l, D_TYPE, t->id->text, r);
+            
+            sym = sym_get(current, t->id->text);
+            if (!sym || sym->type != D_TYPE)
+            {
+                ERRPRINT("%s is not a class type.\n", s->expr->id->text);
+                s->expr->t = D_CLASS;
+                s->expr->bt = D_CLASS;
+                s->expr->class = NULL; 
+            }
+            else
+            {
+                s->expr->t = D_CLASS;
+                s->expr->bt = D_CLASS;
+                s->expr->class = sym->detail;
+            }
         }
         else
         {
             sprintf(tir, "%s %d %s", l, btype, r);
+            s->expr->t = btype;
+            s->expr->bt = btype;
+            s->expr->class = NULL;
         }
         new_ir(IR_NEW);
         return l;
