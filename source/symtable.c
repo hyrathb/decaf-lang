@@ -13,6 +13,7 @@ static struct class_detail *current_class = NULL;
 static struct func_detail *current_func = NULL;
 static char tir[50];
 static struct ir tirs[2048];
+static uint64_t tmp_var_i=0;
 
 #define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
                       nt->table = malloc(sizeof(struct symhash *)); \
@@ -69,10 +70,9 @@ static struct ir tirs[2048];
 /*******NEED TO BE FREED*******/
 char *get_tmp_var()
 {
-    static uint64_t i=0;
     static char tmpname[20];
     char *s;
-    sprintf(tmpname, "!%lu", i++);
+    sprintf(tmpname, "!%lu", tmp_var_i++);
     s = malloc(strlen(tmpname) + 1);
     strcpy(s, tmpname);
     current_func->stacksize += PSIZE;
@@ -1284,6 +1284,7 @@ parseit(funcdefine)
     tirs[current_func->ircount].code = NULL;
     ++current_func->ircount;
     
+    tmp_var_i = 0;
     parse_stmblock(indent+2, s->funcdefine->stmblock);
     
     tirs[current_func->ircount].type = IR_RESTORE_REGS;
