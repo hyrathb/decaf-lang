@@ -46,6 +46,7 @@ struct symres
 
 struct func_detail
 {
+    uint8_t is_member;
     uint8_t override;
     uint8_t generated;
     uint64_t size;
@@ -118,7 +119,7 @@ parseit(var);
 parseit(vardefine);
 parseit(vardefines);
 parseit(expr_with_comma);
-parseit(actuals);
+void parse_actuals(int indent, struct semantics *s, int arg);
 const char *parse_call(int indent, struct semantics *s,struct semantics *expr);
 const char *parse_lvalue(int indent, struct semantics *s);
 const char *parse_expr(int indent, struct semantics *s);

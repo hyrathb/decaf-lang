@@ -106,6 +106,18 @@ struct symhash *sym_get(struct symres *table, const char *i)
     return NULL;
 }
 
+int sym_is_member(struct symres *table, const char *i)
+{
+    struct symhash *n;
+    while (table)
+    {
+        HASH_FIND_STR( *(table->table), i, n);
+        if (n)
+            return table->scope == SCOPE_CLASS;
+        table = table->parent;
+    }
+    return 0;
+}
 struct symhash *sym_get_no_recursive(struct symres *table, const char *i)
 {
     struct symhash *n;
@@ -239,23 +251,43 @@ void parse_ident(int indent, struct semantics *s, int type)
 const char *parse_const(int indent, struct semantics *s)
 {
     ind;
+    char *l = NULL;
     switch (s->type)
     {
     case C_ICONST:
         DBGPRINT("int const: %d\n", s->i_val);
+        sprintf(tir, "$%d", s->i_val);
+        l = malloc(strlen(tir) + 1);
+        strcpy(l, tir);
         break;
     case C_BCONST:
         DBGPRINT("bool const: %s\n", s->i_val?"true":"false");
+        sprintf(tir, "$%d", s->i_val);
+        l = malloc(strlen(tir) + 1);
+        strcpy(l, tir);
         break;
     case C_DCONST:
         DBGPRINT("double const: %f\n", s->d_val);
+        sprintf(tir, "$%15f", s->d_val);
+        l = malloc(strlen(tir) + 1);
+        strcpy(l, tir);
         break;
     case C_SCONST:
         DBGPRINT("string const: %s\n", s->s_val);
+        struct stringlist *new_string = malloc(sizeof(struct stringlist));
+        new_string->s = s->s_val;
+        new_string->i = stringlist->i;
+        ++stringlist->i;
+        new_string->next = stringlsit->next;
+        stringlist->next = new_string;
+        sprintf(tir, "$s%lu", new_string->i);
+        l = malloc(strlen(tir) + 1);
+        strcpy(l, tir);
         break;
     default:
-        return;
+        ;
     }
+    return l;
 }
 
 parseit(null)
@@ -380,35 +412,110 @@ parseit(expr_with_comma)
         parse_expr(indent+2, i->expr);
 }
 
-parseit(actuals)
+void parse_actuals(int indent, struct semantics *s, int arg)
 {
     ind;
     DBGPRINT("actuals:\n");
-    parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
+    char *l, *r;
+    char *tmpnames[20], *tmpexprs[20];
+    char tmpname[20];
+    int j;
+    //parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
+    struct expr_with_comma *i;
+    for (i=s->expr_with_comma; i; i=i->next)
+    {
+        r = parse_expr(indent+2, i->expr);
+        sprintf(tmpname, "#%d", arg);
+        l = malloc(strlen(tmpname)+1);
+        strcpy(l, tmpname);
+        tmpexprs[arg] = r;
+        tmpnames[arg++] = l;
+    }
+    for (j=0; j<arg; ++j)
+    {
+        sprintf(tir, "%s %s =", tmpnames[j], tmpexprs[j]);
+        new_ir(IR_SINGLE);
+        mfree(tmpnames[j]);
+        mfree(tmpexprs[j]);
+    }
 }
 
 const char *parse_call(int indent, struct semantics *s, struct semantics *expr)
 {
     ind;
+    struct symhash *sym;
+    struct func_detail *detail;
+    char *l, *r, *r2;
+    int is_member;
     if (s->call->is_member)
     {
-        DBGPRINT("member function call:\n");
-        parse_lvalue(indent+2, s->call->lvalue);
-        parse_ident(indent+2, s->call->id, 1);
-        parse_actuals(indent+2, s->call->actuals);
+        r = parse_lvalue(indent+2, s->call->lvalue);
+        is_member = 1;
+        if (s->call->lvalue->lvalue->t != D_CLASS)
+            ERRPRINT("Requesting member from a non-class object.\n");
+        else
+            sym = sym_class_get(s->call->lvalue->lvalue->class, s->call->id->text);
     }
     else
     {
-        DBGPRINT("function call:\n");
-        parse_ident(indent+2, s->call->id, 1);
-        parse_actuals(indent+2, s->call->actuals);
+        is_member = sym_is_member(current, s->call->id->text);
+        if (is_member)
+        {
+            r = malloc(strlen("#dx")+1);
+            strcpy(r, "#dx");
+        }
+        sym = sym_get(current, s->call->id->text);
+        
     }
+    parse_ident(indent+2, s->call->id, 1);
+    if (sym)
+    {
+        struct func_detail *detail = sym->detail;
+        struct type *t = detail->type->type;
+        expr->expr->t = type->is_array?D_ARRAY:type->btype;
+        expr->expr->bt = get_basic_type(t);
+        if (expr->expr->bt == D_TYPE)
+        {
+            while (t->btype == D_ARRAY)
+                t = t->arr_type->vtype;
+            struct symhash *sym2 = sym_get(&root, t->id->text);
+            expr->expr->class = sym2->detail;
+        }
+        else
+            expr->expr->class = NULL;
+        if (sym->type == D_FUNCTION)
+        {
+            if (is_member)
+            {
+                parse_actuals(indent+2, s->call->actuals, 1);
+                sprintf(tir, "#0 %s =", r);
+                new_ir(IR_SINGLE);
+                l = get_tmp_var();
+                sprintf(tir, "%s %s $%d +", l, r, detail->offset);
+                new_ir(IR_DOUBLE);
+                sprintf(tir, "%s", l);
+                new_ir(IR_CALL_MEMBER);
+                mfree(r);
+                mfree(l);
+            }
+            else
+            {
+                parse_actuals(indent+2, s->call->actuals, 0);
+                sprintf(tir, "%s", s->call->id->text);
+                new_ir(IR_CALL);
+            }
+        }
+    }
+    l = malloc(strlen("#r")+1);
+    strcpy(l, "#r");
+    return l;
+    
 }
 
 const char *parse_lvalue(int indent, struct semantics *s)
 {
     ind;
-    const char *l, *tl, *r, *r2;
+    char *l, *tl, *r, *r2;
     struct symhash *id;
     struct var_detail *detail;
     switch (s->lvalue->lvalue_type)
@@ -479,7 +586,7 @@ const char *parse_lvalue(int indent, struct semantics *s)
 const char *parse_expr(int indent, struct semantics *s)
 {
     ind;
-    const char *l, *r, *r2;
+    char *l, *r, *r2;
     switch (s->expr->expr_type)
     {
     case EXPR_ASSIGN:
@@ -944,6 +1051,7 @@ void parse_funcdefine_reg_only(int indent, struct semantics *s)
     struct func_detail *new_func = malloc(sizeof(struct func_detail));
     struct symhash *override = sym_class_get(current_class, s->funcdefine->id->text);
     new_func->generated = 0;
+    new_func->is_member = 1;
     if (override)
     {
         new_func->override = 1;
@@ -979,9 +1087,11 @@ parseit(funcdefine)
         }
     }    
     else
+    {
         new_func = malloc(sizeof(struct func_detail));
+        new_func->is_member = 0;
+    }
     current_func = new_func;
-    new_func->generated = 1;
     new_func->ircount = 0;
     if (!s->funcdefine->is_void)
     {
@@ -993,6 +1103,7 @@ parseit(funcdefine)
     {
         DBGPRINT("void function define:\n");
         new_func->type = NULL;
+        new_func->generated = 0;
     }
     parse_ident(indent+2, s->funcdefine->id, 0);
     new_field(SCOPE_FORMAL);

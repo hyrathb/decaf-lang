@@ -9,8 +9,11 @@ enum ir_type
     IR_BREAK, //not in final ir
     IR_SINGLE,
     IR_DOUBLE,
-    IR_SAVE,
-    IR_RESTORE,
+    IR_CALL_MEMBER,
+    IR_CALL,
+    IR_RET,
+    IR_SAVE_REGS,
+    IR_RESTORE_REGS,
     IR_NEW,
     IR_B,
     IR_J
