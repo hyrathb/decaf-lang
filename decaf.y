@@ -179,7 +179,7 @@ breakstmt :
     TKBREAK TPSEP {$$=new_node; $$->type=C_BREAKSTM; $$->i_val=0;};
 
 printstmt :
-    TKPRINT TOLB exprss TORB TPSEP {$$=new_node; $$->type=C_PRINTSTM; $$->printstm = malloc(sizeof(struct printstm)); $$->printstm->expr=$3;};
+    TKPRINT TOLB expr TORB TPSEP {$$=new_node; $$->type=C_PRINTSTM; $$->printstm = malloc(sizeof(struct printstm)); $$->printstm->expr=$3;};
     
 stmt :
     TPSEP {$$=new_node; $$->type=C_STM; $$->stm = malloc(sizeof(struct stm)); $$->stm->stm_type=STM_EMPTY; $$->stm->s_stm=NULL;}

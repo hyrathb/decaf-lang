@@ -28,7 +28,8 @@ enum decaf_type
     D_FUNCTION,
     D_CLASS,
     D_INTERFACE,
-    D_TYPE
+    D_TYPE,
+    D_VOID
 };
 
 enum comp_type

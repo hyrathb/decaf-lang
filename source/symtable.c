@@ -50,13 +50,29 @@ static struct ir tirs[2048];
 #define DPRINTSYM(x)
 #endif
 
+#ifdef IRDEBUG
+#define DPRINTIR(x)   \
+                      { \
+                          for (x = 0; x < current_func->ircount; ++x) \
+                      { \
+                            if (current_func->irlist[x].code) \
+                                \
+                            {DBGPRINT("%lu %d %s \n", x, current_func->irlist[x].type, current_func->irlist[x].code);} \
+                            else \
+                            {DBGPRINT("%lu %d\n", x, current_func->irlist[x].type);}    \
+                      } \
+                      DBGPRINT("\n");}
+#else
+#define DPRINTIR(x)
+#endif
+
 /*******NEED TO BE FREED*******/
 char *get_tmp_var()
 {
     static uint64_t i=0;
     static char tmpname[20];
     char *s;
-    sprintf(tmpname, "!%lu", i);
+    sprintf(tmpname, "!%lu", i++);
     s = malloc(strlen(tmpname) + 1);
     strcpy(s, tmpname);
     current_func->stacksize += PSIZE;
@@ -270,7 +286,7 @@ char *parse_const(int indent, struct semantics *s)
         break;
     case C_DCONST:
         DBGPRINT("double const: %f\n", s->d_val);
-        sprintf(tir, "$%15f", s->d_val);
+        sprintf(tir, "$f", s->d_val);
         l = malloc(strlen(tir) + 1);
         strcpy(l, tir);
         break;
@@ -421,24 +437,27 @@ void parse_actuals(int indent, struct semantics *s, int arg)
     char *l, *r;
     char *tmpnames[20], *tmpexprs[20];
     char tmpname[20];
-    int j;
+    int j=arg;
     //parse_expr_with_comma(indent+2, s->actuals->expr_with_comma);
     struct expr_with_comma *i;
-    for (i=s->expr_with_comma; i; i=i->next)
+    if (s->actuals->expr_with_comma)
     {
-        r = parse_expr(indent+2, i->expr);
-        sprintf(tmpname, "#%d", arg);
-        l = malloc(strlen(tmpname)+1);
-        strcpy(l, tmpname);
-        tmpexprs[arg] = r;
-        tmpnames[arg++] = l;
-    }
-    for (j=0; j<arg; ++j)
-    {
-        sprintf(tir, "%s %s =", tmpnames[j], tmpexprs[j]);
-        new_ir(IR_SINGLE);
-        mfree(tmpnames[j]);
-        mfree(tmpexprs[j]);
+        for (i=s->actuals->expr_with_comma->expr_with_comma; i; i=i->next)
+        {
+            r = parse_expr(indent+2, i->expr);
+            sprintf(tmpname, "#%d", arg);
+            l = malloc(strlen(tmpname)+1);
+            strcpy(l, tmpname);
+            tmpexprs[arg] = r;
+            tmpnames[arg++] = l;
+        }
+        for (; j<arg; ++j)
+        {
+            sprintf(tir, "%s %s =", tmpnames[j], tmpexprs[j]);
+            new_ir(IR_SINGLE);
+            mfree(tmpnames[j]);
+            mfree(tmpexprs[j]);
+        }
     }
 }
 
@@ -446,7 +465,6 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
 {
     if (!s)
         return NULL;
-    printindent(indent);
     struct symhash *sym;
     char *l, *r=NULL;
     int is_member;
@@ -475,22 +493,37 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
         sym = sym_get(current, s->call->id->text);
         
     }
+    if (is_member)
+        DBGPRINT("member function call expr:\n");
+    else
+        DBGPRINT("function call expr:\n");
     parse_ident(indent+2, s->call->id, 1);
     if (sym)
     {
         struct func_detail *detail = sym->detail;
-        struct type *t = detail->type->vtype;
-        expr->expr->t = t->is_array?D_ARRAY:t->btype;
-        expr->expr->bt = get_basic_type(t);
-        if (expr->expr->bt == D_TYPE)
+        if (detail->type)
         {
-            while (t->btype == D_ARRAY)
-                t = t->arr_type->vtype;
-            struct symhash *sym2 = sym_get(&root, t->id->text);
-            expr->expr->class = sym2->detail;
+            struct type *t = detail->type->vtype;
+            expr->expr->t = t->is_array?D_ARRAY:t->btype;
+            expr->expr->bt = get_basic_type(t);
+            if (expr->expr->bt == D_TYPE)
+            {
+                while (t->btype == D_ARRAY)
+                    t = t->arr_type->vtype;
+                struct symhash *sym2 = sym_get(&root, t->id->text);
+                expr->expr->class = sym2->detail;
+            }
+            else
+            {
+                expr->expr->class = NULL;
+            }
         }
         else
+        {
+            expr->expr->t = D_VOID;
+            expr->expr->bt = D_VOID;
             expr->expr->class = NULL;
+        }
         if (sym->type == D_FUNCTION)
         {
             if (is_member)
@@ -513,6 +546,8 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
                 new_ir(IR_CALL);
             }
         }
+        else
+            ERRPRINT("Not a function.\n");
     }
     l = malloc(strlen("#r")+1);
     strcpy(l, "#r");
@@ -655,7 +690,6 @@ char *parse_expr(int indent, struct semantics *s)
         
         return l;
     case EXPR_CALL:
-        DBGPRINT("function call expr:\n");
         l = parse_call(indent+2, s->expr->call, s);
         return l;
     case EXPR_PRIORITY:
@@ -1097,7 +1131,8 @@ parseit(stm)
     case STM_EXPR:
         ind;
         DBGPRINT("expr statement:\n");
-        mfree(parse_expr(indent+2, s->stm->expr));
+        char *e = parse_expr(indent+2, s->stm->expr);
+        mfree(e);
         break;
     case STM_IF:
         parse_ifstm(indent, s->stm->s_stm);
@@ -1215,11 +1250,32 @@ parseit(funcdefine)
     parse_formals(indent+2, s->funcdefine->formals);
     struct symhash *si;
     DPRINTSYM(si);
+    
+    tirs[current_func->ircount].type = IR_SAVE_REGS;
+    tirs[current_func->ircount].env = current;
+    tirs[current_func->ircount].code = NULL;
+    ++current_func->ircount;
+    
     parse_stmblock(indent+2, s->funcdefine->stmblock);
+    
+    tirs[current_func->ircount].type = IR_RESTORE_REGS;
+    tirs[current_func->ircount].env = current;
+    tirs[current_func->ircount].code = NULL;
+    ++current_func->ircount;
+    
+    tirs[current_func->ircount].type = IR_RET;
+    tirs[current_func->ircount].env = current;
+    tirs[current_func->ircount].code = NULL;
+    ++current_func->ircount;
+    
     new_func->size = new_func->ircount * sizeof(struct ir); //tmp
     new_func->irlist = malloc(new_func->ircount * sizeof(struct ir));
     memcpy(new_func->irlist, tirs, new_func->ircount * sizeof(struct ir));
     current = current->parent;
+    
+    uint64_t ri;
+    DPRINTIR(ri);
+    
     if (current->scope != SCOPE_CLASS)
     {
         new_func->offset = root.current_func_offset;

@@ -10,6 +10,12 @@ CFLAGS := -O2 -Wall -c -Iinclude
 ifdef DEBUG
 CFLAGS +=-g -DYYDEBUG -DDEBUG
 endif
+ifdef SYMDEBUG
+CFLAGS += -DSYMDEBUG
+endif
+ifdef IRDEBUG
+CFLAGS += -DIRDEBUG
+endif
 LEXICAL := decaf.l
 GRAMMAR := decaf.y
 LEXICAL_C := lexical.c
