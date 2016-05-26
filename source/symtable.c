@@ -34,7 +34,7 @@ static struct ir tirs[2048];
                               a->class = x->class; \
 }
                             
-#define set_check_type(a, x, y) {if (((x)->t != (y)->t) || (((x)->t == D_CLASS) && ((y)->class) && ((x)->class != (y)->class))) \
+#define set_check_type(a, x, y) {if (((x)->t != (y)->t) || (((x)->t == D_CLASS) && ((y)->class) && check_base((x)->class, (y)->class))) \
                                 ERRPRINT("Type Mismatch %d, %d.\n", x->t, y->t); \
                                 set_type(a, x); \
 }
@@ -122,18 +122,6 @@ struct symhash *sym_get(struct symres *table, const char *i)
     return NULL;
 }
 
-int sym_is_member(struct symres *table, const char *i)
-{
-    struct symhash *n;
-    while (table)
-    {
-        HASH_FIND_STR( *(table->table), i, n);
-        if (n)
-            return table->scope == SCOPE_CLASS;
-        table = table->parent;
-    }
-    return 0;
-}
 struct symhash *sym_get_no_recursive(struct symres *table, const char *i)
 {
     struct symhash *n;
@@ -155,6 +143,17 @@ struct class_detail *sym_get_class(struct class_detail *class, const char *i)
     return NULL;
 }
 
+int check_base(struct class_detail *x, struct class_detail *y)
+{
+    while (y)
+    {
+        if (y == x)
+            return 0;
+        y = y->base;
+    }
+    return 1;
+    
+}
 
 uint64_t base_size(struct class_detail *base)
 {
@@ -256,7 +255,7 @@ void parse_ident(int indent, struct semantics *s, int type)
             return;
         }
         else
-            WPRINT("Fatal: Unknown identifier %s\n", s->text);
+            DBGPRINT("identifier: %s\n", s->text);
     }
     else
     {
@@ -286,10 +285,16 @@ char *parse_const(int indent, struct semantics *s)
         break;
     case C_DCONST:
         DBGPRINT("double const: %f\n", s->d_val);
-        sprintf(tir, "$f", s->d_val);
+        sprintf(tir, "$%lf", s->d_val);
         l = malloc(strlen(tir) + 1);
         strcpy(l, tir);
         break;
+    case C_NULL:
+        DBGPRINT("null const\n");
+        sprintf(tir, "$0");
+        l = malloc(strlen(tir) + 1);
+        strcpy(l, tir);
+        break;        
     case C_SCONST:
         DBGPRINT("string const: %s\n", s->s_val);
         struct stringlist *new_string = malloc(sizeof(struct stringlist));
@@ -484,14 +489,15 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
     }
     else
     {
-        is_member = sym_is_member(current, s->call->id->text);
-        if (is_member)
+        sym = sym_class_get(current_class, s->call->id->text);
+        if (sym)
         {
+            is_member = 1;
             r = malloc(strlen("#dx")+1);
             strcpy(r, "#dx");
         }
-        sym = sym_get(current, s->call->id->text);
-        
+        else
+            sym = sym_get(current, s->call->id->text);
     }
     if (is_member)
         DBGPRINT("member function call expr:\n");
@@ -1228,6 +1234,7 @@ parseit(funcdefine)
     {
         new_func = malloc(sizeof(struct func_detail));
         new_func->is_member = 0;
+        sym_add(&root, s->funcdefine->id->text, D_FUNCTION, new_func);
     }
     current_func = new_func;
     new_func->ircount = 0;
@@ -1279,7 +1286,6 @@ parseit(funcdefine)
     if (current->scope != SCOPE_CLASS)
     {
         new_func->offset = root.current_func_offset;
-        sym_add(&root, s->funcdefine->id->text, D_FUNCTION, new_func);
     }
     else
     {
@@ -1388,6 +1394,7 @@ parseit(classdefine)
     parse_ident(indent+2, s->classdefine->id, 0);
     struct class_detail *new_class=malloc(sizeof(struct class_detail));
     current_class = new_class;
+    sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
     if (s->classdefine->extend && s->classdefine->extend->extend && s->classdefine->extend->extend->id)
     {
         struct symhash *r = sym_get(current, s->classdefine->extend->extend->id->text);
@@ -1416,7 +1423,6 @@ parseit(classdefine)
     struct symhash *si;
     DPRINTSYM(si);
     current = current->parent;
-    sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
 }
 
 parseit(protype)
