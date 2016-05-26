@@ -935,22 +935,62 @@ char *parse_expr(int indent, struct semantics *s)
 parseit(ifstm)
 {
     ind;
+    char *e1;
+    uint64_t irplace1, irplace2;
     DBGPRINT("if statement:\n");
-    parse_expr(indent+2, s->if_stm->expr);
-    ind;
-    DBGPRINT("then:\n");
-    parse_stm(indent+2, s->if_stm->stm1);
+    e1 = parse_expr(indent+2, s->if_stm->expr);
+    irplace1 = current_func->ircount;
+    ++current_func->ircount;
+    
     ind;
     DBGPRINT("else:\n");
     parse_stm(indent+2, s->if_stm->stm2);
+    irplace2 = current_func->ircount;
+    ++current_func->ircount;
+    
+    sprintf(tir, "%s %lu", e1, current_func->ircount);
+    tirs[irplace1].type = IR_B;
+    tirs[irplace1].env = current;
+    tirs[irplace1].code = malloc(strlen(tir)+1);
+    strcpy(tirs[irplace1].code, tir);
+    
+    ind;
+    DBGPRINT("then:\n");
+    parse_stm(indent+2, s->if_stm->stm1);
+    sprintf(tir, "%lu", current_func->ircount);
+    tirs[irplace2].type = IR_J;
+    tirs[irplace2].env = current;
+    tirs[irplace2].code = malloc(strlen(tir)+1);
+    strcpy(tirs[irplace2].code, tir);
 }
 
 parseit(whilestm)
 {
     ind;
+    uint64_t loop_entery = current_func->ircount, loop_cond_end, loop_body_end;
+    char *e;
     DBGPRINT("while statement:\n");
-    parse_expr(indent+2, s->whilestm->expr);
+    
+    e = parse_expr(indent+2, s->whilestm->expr);
+    loop_cond_end = current_func->ircount;
+    current_func->ircount += 2;
+    
     parse_stm(indent+2, s->whilestm->stm);
+    sprintf(tir, "%lu", loop_entery);
+    new_ir(IR_J);
+    
+    loop_body_end = current_func->ircount;
+    sprintf(tir, "%s %lu", e, loop_cond_end+2);
+    tirs[loop_cond_end].type = IR_B;
+    tirs[loop_cond_end].env = current;
+    tirs[loop_cond_end].code = malloc(strlen(tir)+1);
+    strcpy(tirs[loop_cond_end].code, tir);
+    sprintf(tir, "%lu", loop_body_end);
+    tirs[loop_cond_end+1].type = IR_J;
+    tirs[loop_cond_end+1].env = current;
+    tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
+    strcpy(tirs[loop_cond_end+1].code, tir);
+    
 }
 
 parseit(forstm)
@@ -958,30 +998,77 @@ parseit(forstm)
     ind;
     DBGPRINT("for statement:\n");
     ind;
+    char *e;
     DBGPRINT("INIT:\n");
     parse_expr_or_not(indent+2, s->forstm->expr_or_not1);
+    
     ind;
-    uint64_t loop_entery = current_func->ircount;
+    uint64_t loop_entery = current_func->ircount, loop_cond_end, loop_body_end;
     DBGPRINT("COND:\n");
-    parse_expr(indent+2, s->forstm->expr);
-    ind;
-    DBGPRINT("ACC:\n");
-    parse_expr_or_not(indent+2, s->forstm->expr_or_not2);
+    e = parse_expr(indent+2, s->forstm->expr);
+    loop_cond_end = current_func->ircount;
+    current_func->ircount += 2;
+    
     ind;
     DBGPRINT("STATEMENT:\n");
     parse_stm(indent+2, s->forstm->stm);
+    
+    ind;
+    DBGPRINT("ACC:\n");
+    parse_expr_or_not(indent+2, s->forstm->expr_or_not2);
+    sprintf(tir, "%lu", loop_entery);
+    new_ir(IR_J);
+    
+    loop_body_end = current_func->ircount;
+    sprintf(tir, "%s %lu", e, loop_cond_end+2);
+    tirs[loop_cond_end].type = IR_B;
+    tirs[loop_cond_end].env = current;
+    tirs[loop_cond_end].code = malloc(strlen(tir)+1);
+    strcpy(tirs[loop_cond_end].code, tir);
+    sprintf(tir, "%lu", loop_body_end);
+    tirs[loop_cond_end+1].type = IR_J;
+    tirs[loop_cond_end+1].env = current;
+    tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
+    strcpy(tirs[loop_cond_end+1].code, tir);
 }
 
 parseit(retstm)
 {
     ind;
     DBGPRINT("return statement:\n");
-    parse_expr_or_not(indent+2, s->returnstm->expr_or_not);
+    //parse_expr_or_not(indent+2, s->returnstm->expr_or_not);
+    
+    if (current_func->type)
+    {
+        if (!s->returnstm->expr_or_not->expr_or_not->expr)
+        {
+            ERRPRINT("No return value in non-void function.");
+        }
+        else
+        {
+            sprintf(tir, "#r %s =", parse_expr(indent+2, s->returnstm->expr_or_not->expr_or_not->expr));
+            new_ir(IR_SINGLE);
+        }
+    }
+    
+    tirs[current_func->ircount].type = IR_RESTORE_REGS;
+    tirs[current_func->ircount].env = current;
+    tirs[current_func->ircount].code = NULL;
+    ++current_func->ircount;
+    tirs[current_func->ircount].type = IR_RET;
+    tirs[current_func->ircount].env = current;
+    tirs[current_func->ircount].code = NULL;
+    ++current_func->ircount;
+    
 }
 
 parseit(breakstm)
 {
     ind;
+    tirs[current_func->ircount].type = IR_BREAK;
+    tirs[current_func->ircount].env = current;
+    tirs[current_func->ircount].code = NULL;
+    ++current_func->ircount;
     DBGPRINT("break statement\n");
 }
 
@@ -989,7 +1076,9 @@ parseit(printstm)
 {
     ind;
     DBGPRINT("print statement:\n");
-    parse_expr(indent+2, s->printstm->expr);
+    char *e = parse_expr(indent+2, s->printstm->expr);
+    sprintf(tir, "%d %s", s->printstm->expr->expr->bt, e);
+    new_ir(IR_PRINT);
 }
 
 parseit(expr_or_not)
@@ -1008,7 +1097,7 @@ parseit(stm)
     case STM_EXPR:
         ind;
         DBGPRINT("expr statement:\n");
-        parse_expr(indent+2, s->stm->expr);
+        mfree(parse_expr(indent+2, s->stm->expr));
         break;
     case STM_IF:
         parse_ifstm(indent, s->stm->s_stm);

@@ -14,6 +14,7 @@ enum ir_type
     IR_RET,
     IR_SAVE_REGS,
     IR_RESTORE_REGS,
+    IR_PRINT,
     IR_NEW,
     IR_B,
     IR_J
