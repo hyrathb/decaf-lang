@@ -619,6 +619,10 @@ char *parse_lvalue(int indent, struct semantics *s)
         s->lvalue->class = s->lvalue->lvalue->lvalue->class;
         
         tl = get_tmp_var();
+        sprintf(tir, "%s %s $%d *", tl, r2, PSIZE);
+        new_ir(IR_DOUBLE);
+        
+        tl = get_tmp_var();
         sprintf(tir, "%s %s %s +", tl, r, r2);
         new_ir(IR_DOUBLE);
         mfree(r);
@@ -936,7 +940,7 @@ char *parse_expr(int indent, struct semantics *s)
         r = parse_expr(indent+2, s->expr->expr1);
         parse_type(indent+2, s->expr->type);
         int btype = get_basic_type(s->expr->type->vtype);
-        if (btype == D_TYPE)
+        if (btype == D_CLASS)
         {
             struct type *t = s->expr->type->vtype;
             while (t->btype == D_ARRAY)
