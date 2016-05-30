@@ -13,7 +13,7 @@ static struct class_detail *current_class = NULL;
 static struct func_detail *current_func = NULL;
 static char tir[50];
 static struct ir tirs[2048];
-static uint64_t tmp_var_i=0;
+static uint32_t tmp_var_i=0;
 
 #define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
                       nt->table = malloc(sizeof(struct symhash *)); \
@@ -39,6 +39,14 @@ static uint64_t tmp_var_i=0;
                                 ERRPRINT("Type Mismatch %d, %d.\n", x->t, y->t); \
                                 set_type(a, x); \
 }
+
+#define new_string(s) {         struct stringlist *new_string = malloc(sizeof(struct stringlist)); \
+                                new_string->s = s; \
+                                new_string->i = stringlist->i; \
+                                ++stringlist->i; \
+                                new_string->next = stringlist->next; \
+                                stringlist->next = new_string;}
+
 
 #ifdef SYMDEBUG
 #define DPRINTSYM(x)  if (current->table)   \
@@ -67,6 +75,13 @@ static uint64_t tmp_var_i=0;
 #define DPRINTIR(x)
 #endif
 
+void init_string()
+{
+    new_string("%s");
+    new_string("%f");
+    new_string("%x");
+}
+
 /*******NEED TO BE FREED*******/
 char *get_tmp_var()
 {
@@ -76,6 +91,7 @@ char *get_tmp_var()
     s = malloc(strlen(tmpname) + 1);
     strcpy(s, tmpname);
     current_func->stacksize += PSIZE;
+    current_func->tvarsize += PSIZE;
     return s;
 }
                       
@@ -107,6 +123,16 @@ struct symhash *sym_class_get(struct class_detail *class, const char *i)
         class = class->base;
     }
     return NULL;
+}
+
+int in_class(struct symres *table)
+{
+    struct symhash *n;
+    while (table && table->scope != SCOPE_CLASS)
+    {
+        table = table->parent;
+    }
+    return table->scope == SCOPE_CLASS;
 }
 
 struct symhash *sym_get(struct symres *table, const char *i)
@@ -155,7 +181,7 @@ int check_base(struct class_detail *x, struct class_detail *y)
     
 }
 
-uint64_t base_size(struct class_detail *base)
+uint32_t base_size(struct class_detail *base)
 {
     if (base)
         return base->size;
@@ -169,9 +195,9 @@ enum decaf_type get_basic_type(struct type *type)
     return type->btype;
 }
 
-uint64_t get_array_dims(struct type *type)
+uint32_t get_array_dims(struct type *type)
 {
-    uint64_t ret = 0;
+    uint32_t ret = 0;
     while (type->btype == D_ARRAY)
     {
         ++ret;
@@ -297,12 +323,7 @@ char *parse_const(int indent, struct semantics *s)
         break;        
     case C_SCONST:
         DBGPRINT("string const: %s\n", s->s_val);
-        struct stringlist *new_string = malloc(sizeof(struct stringlist));
-        new_string->s = s->s_val;
-        new_string->i = stringlist->i;
-        ++stringlist->i;
-        new_string->next = stringlist->next;
-        stringlist->next = new_string;
+        new_string(s->s_val);
         sprintf(tir, "$s%lu", new_string->i);
         l = malloc(strlen(tir) + 1);
         strcpy(l, tir);
@@ -330,6 +351,7 @@ parseit(formals)
         {
             parse_var(indent+2, i->var);
             current_func->stacksize += PSIZE;
+            current_func->formalsize += PSIZE;
         }
     }
 }
@@ -376,7 +398,6 @@ parseit(var)
     parse_ident(indent, s->var->id, 0);
     struct var_detail *new_var = malloc(sizeof(struct var_detail));
     new_var->is_array = s->var->type->vtype->is_array;
-    new_var->array_dims = get_array_dims(s->var->type->vtype);
     new_var->type = get_basic_type(s->var->type->vtype);
     new_var->offset = current->current_var_offset;
     new_var->class = NULL;
@@ -404,6 +425,8 @@ parseit(var)
         ERRPRINT("Unknown type.\n");
         
     }
+    new_var->size = PSIZE; ///hehe
+    new_var->scope = current->scope;
     sym_add(current, s->var->id->text, s->var->type->vtype->btype, new_var);
     current->current_var_offset += new_var->size + (new_var->size % ROUNDSIZE);
 }
@@ -424,6 +447,7 @@ parseit(vardefines)
     {
         parse_vardefine(indent+2, i->vardefine);
         current_func->stacksize += PSIZE;
+        current_func->uvarsize += PSIZE;
     }
 }
 
@@ -538,9 +562,17 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
                 sprintf(tir, "#0 %s =", r);
                 new_ir(IR_SINGLE);
                 l = get_tmp_var();
-                sprintf(tir, "%s %s $%lu +", l, r, detail->offset);
+                sprintf(tir, "%s *%s =", l, r);
+                new_ir(IR_SINGLE);
+                mfree(r);
+                r = get_tmp_var();
+                sprintf(tir, "%s %s $%lu +", r, l, detail->offset);
                 new_ir(IR_DOUBLE);
-                sprintf(tir, "%s", l);
+                mfree(l);
+                l = get_tmp_var();
+                sprintf(tir, "%s *%s =", l, r);
+                new_ir(IR_SINGLE);
+                sprintf(tir, "%s", r);
                 new_ir(IR_CALL_MEMBER);
                 mfree(r);
                 mfree(l);
@@ -555,8 +587,8 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
         else
             ERRPRINT("Not a function.\n");
     }
-    l = malloc(strlen("#r")+1);
-    strcpy(l, "#r");
+    l = malloc(strlen("#ar")+1);
+    strcpy(l, "#ar");
     return l;
     
 }
@@ -574,16 +606,41 @@ char *parse_lvalue(int indent, struct semantics *s)
     case LVAL_IDENT:
         DBGPRINT("identifier as lvalue: \n");
         parse_ident(indent+2, s->lvalue->id, 1);
-        id = sym_get(current, s->lvalue->id->text);
+        if (in_class(current))
+        {
+            id = sym_class_get(current_class, s->lvalue->id->text);
+            if (!id)
+                id = sym_get(current, s->lvalue->id->text);
+        }
+        else
+            id = sym_get(current, s->lvalue->id->text);
         detail = (struct var_detail *)id->detail;
         
         s->lvalue->t = detail->is_array?D_ARRAY:detail->type;
         s->lvalue->bt = detail->type;
         s->lvalue->class = detail->class;
         
-        l = malloc(strlen(s->lvalue->id->text) + 1);
-        strcpy(l, s->lvalue->id->text);
-        return l;
+        if (detail->scope == SCOPE_CLASS)
+        {
+            r = malloc(strlen("#dx")+1);
+            strcpy(r, "#dx");
+            r2 = get_tmp_var();
+            sprintf(tir, "%s %s $%lu +", r2, r, PSIZE + detail->offset);
+            new_ir(IR_DOUBLE);
+            mfree(r);
+            l = malloc(strlen(r2) + 2);
+            l[0] = '*';
+            l[1] = 0;
+            strcat(l, r2);
+            free(r2);
+            return l;
+        }
+        else
+        {
+            l = malloc(strlen(s->lvalue->id->text) + 1);
+            strcpy(l, s->lvalue->id->text);
+            return l;
+        }
     case LVAL_MEMBER:
         DBGPRINT("member as lvalue: \n");
         r = parse_lvalue(indent+2, s->lvalue->lvalue);
@@ -597,7 +654,7 @@ char *parse_lvalue(int indent, struct semantics *s)
         s->lvalue->class = detail->class;
         
         r2 = get_tmp_var();
-        sprintf(tir, "%s %s $%lu +", r2, r, s->lvalue->lvalue->lvalue->class->vtable_size + detail->offset);
+        sprintf(tir, "%s %s $%lu +", r2, r, PSIZE + detail->offset);
         new_ir(IR_DOUBLE);
         mfree(r);
         l = malloc(strlen(r2) + 2);
@@ -980,7 +1037,7 @@ parseit(ifstm)
 {
     ind;
     char *e1;
-    uint64_t irplace1, irplace2;
+    uint32_t irplace1, irplace2;
     DBGPRINT("if statement:\n");
     e1 = parse_expr(indent+2, s->if_stm->expr);
     irplace1 = current_func->ircount;
@@ -1011,7 +1068,7 @@ parseit(ifstm)
 parseit(whilestm)
 {
     ind;
-    uint64_t loop_entery = current_func->ircount, loop_cond_end, loop_body_end;
+    uint32_t loop_entery = current_func->ircount, loop_cond_end, loop_body_end;
     char *e;
     DBGPRINT("while statement:\n");
     
@@ -1035,7 +1092,7 @@ parseit(whilestm)
     tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
     strcpy(tirs[loop_cond_end+1].code, tir);
     
-    uint64_t i;
+    uint32_t i;
     for (i = loop_cond_end; i < loop_body_end; ++i)
         if (tirs[i].type == IR_BREAK)
         {
@@ -1055,7 +1112,7 @@ parseit(forstm)
     parse_expr_or_not(indent+2, s->forstm->expr_or_not1);
     
     ind;
-    uint64_t loop_entery = current_func->ircount, loop_cond_end, loop_body_end;
+    uint32_t loop_entery = current_func->ircount, loop_cond_end, loop_body_end;
     DBGPRINT("COND:\n");
     e = parse_expr(indent+2, s->forstm->expr);
     loop_cond_end = current_func->ircount;
@@ -1083,7 +1140,7 @@ parseit(forstm)
     tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
     strcpy(tirs[loop_cond_end+1].code, tir);
     
-    uint64_t i;
+    uint32_t i;
     for (i = loop_cond_end; i < loop_body_end; ++i)
         if (tirs[i].type == IR_BREAK)
         {
@@ -1107,7 +1164,7 @@ parseit(retstm)
         }
         else
         {
-            sprintf(tir, "#r %s =", parse_expr(indent+2, s->returnstm->expr_or_not->expr_or_not->expr));
+            sprintf(tir, "#ar %s =", parse_expr(indent+2, s->returnstm->expr_or_not->expr_or_not->expr));
             new_ir(IR_SINGLE);
         }
     }
@@ -1273,8 +1330,15 @@ parseit(funcdefine)
     }
     parse_ident(indent+2, s->funcdefine->id, 0);
     new_field(SCOPE_FORMAL);
+    if (new_func->is_member)
+    {
+        current->current_var_offset = PSIZE;
+    }
     new_func->formals = current;
     new_func->stacksize = 0;
+    new_func->formalsize = 0;
+    new_func->uvarsize = 0;
+    new_func->tvarsize = 0;
     parse_formals(indent+2, s->funcdefine->formals);
     struct symhash *si;
     DPRINTSYM(si);
@@ -1297,12 +1361,18 @@ parseit(funcdefine)
     tirs[current_func->ircount].code = NULL;
     ++current_func->ircount;
     
+    uint32_t ri;
+    for (ri =0; ri<current_func->ircount; ++ri)
+    {
+        tirs[ri].generated = 0;
+        tirs[ri].number = 0;
+    }
+        
     new_func->size = new_func->ircount * sizeof(struct ir); //tmp
     new_func->irlist = malloc(new_func->ircount * sizeof(struct ir));
     memcpy(new_func->irlist, tirs, new_func->ircount * sizeof(struct ir));
     current = current->parent;
-    
-    uint64_t ri;
+        
     DPRINTIR(ri);
     
     if (current->scope != SCOPE_CLASS)
@@ -1437,7 +1507,7 @@ parseit(classdefine)
     new_class->vtable_size = 0;
     new_class->env = current;
     parse_fields(indent+2, s->classdefine->fields, 1);
-    new_class->size = current->current_var_offset + new_class->vtable_size;
+    new_class->size = current->current_var_offset + PSIZE;
     new_class->vtable = malloc(new_class->vtable_size);
     if (new_class->base)
         memcpy(new_class->vtable, new_class->base->vtable, new_class->base->vtable_size);
@@ -1511,6 +1581,7 @@ parseit(program)
 {
     ind;
     DBGPRINT("PROGRAM:\n");
+    init_string();
     struct program *i;
     for (i=s->program; i; i=i->next)
     {

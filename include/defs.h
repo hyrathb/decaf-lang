@@ -7,7 +7,7 @@
 
 #define YYSTYPE struct semantics*
 
-#define PSIZE 8
+#define PSIZE 4
 
 #define INTSIZE PSIZE
 #define BOOLSIZE PSIZE
@@ -415,8 +415,9 @@ struct semantics
 
 struct stringlist
 {
+    uint32_t length;
     const char *s;
-    uint64_t i;
+    uint32_t i;
     struct stringlist *next;
 };
 

@@ -38,8 +38,8 @@ enum scope
 struct symres
 {
     enum scope scope;
-    uint64_t current_var_offset;
-    uint64_t current_func_offset;
+    uint32_t current_var_offset;
+    uint32_t current_func_offset;
     struct symhash **table;
     struct symres *parent;
 };
@@ -49,13 +49,16 @@ struct func_detail
     uint8_t is_member;
     uint8_t override;
     uint8_t generated;
-    uint64_t size;
-    uint64_t stacksize;
+    uint32_t size;
+    uint32_t stacksize;
+    uint32_t formalsize;
+    uint32_t uvarsize;
+    uint32_t tvarsize;
     struct semantics *type;
     struct symres *formals;
-    uint64_t ircount;
+    uint32_t ircount;
     struct ir *irlist;
-    uint64_t offset;
+    uint32_t offset;
 };
 
 struct interface_detail
@@ -73,15 +76,15 @@ struct interface_details
 struct vtable
 {
     const char *name;
-    uint64_t offset;
+    uint32_t offset;
     struct vtable *next;
 };
 */
 struct class_detail
 {
-    uint64_t vtable_size;
-    uint64_t *vtable;
-    uint64_t size;
+    uint32_t vtable_size;
+    uint32_t *vtable;
+    uint32_t size;
     struct class_detail *base;
     struct interface_details *interfaces;
     struct symres *env;
@@ -89,12 +92,12 @@ struct class_detail
 
 struct var_detail
 {
+    enum scope scope;
     uint8_t is_array;
-    uint64_t array_dims;
-    uint64_t size;
+    uint32_t size;
     enum decaf_type type;
     struct class_detail *class;
-    uint64_t offset;
+    uint32_t offset;
 };
 
 int sym_add(struct symres *table, const char * i,enum decaf_type t, void *d);
@@ -102,9 +105,9 @@ struct symhash *sym_get(struct symres *table, const char *i);
 struct symhash *sym_get_no_recursive(struct symres *table, const char *i);
 struct symhash *sym_class_get(struct class_detail *class, const char *i);
 struct class_detail *sym_get_class(struct class_detail *class, const char *i);
-uint64_t base_size(struct class_detail *base);
+uint32_t base_size(struct class_detail *base);
 enum decaf_type get_basic_type(struct type *type);
-uint64_t get_array_dims(struct type *type);
+uint32_t get_array_dims(struct type *type);
 
 
 #define parseit(sem) void parse_##sem(int indent, struct semantics *s)

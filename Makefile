@@ -6,7 +6,7 @@ CC := gcc
 LD := ld
 BIN := test
 TESTFILE := hehe.decaf
-CFLAGS := -O2 -Wall -c -Iinclude
+CFLAGS := -m32 -O2 -Wall -c -Iinclude
 ifdef DEBUG
 CFLAGS +=-g -DYYDEBUG -DDEBUG
 endif
@@ -39,7 +39,7 @@ $(OBJS): src $(SOURCE)
 	$(CC) $(CFLAGS) $(LEXICAL_C) $(GRAMMAR_C) $(SOURCE)
 
 bin: $(OBJS)
-	gcc -o $(BIN) $(OBJS)
+	gcc -m32 -o $(BIN) $(OBJS)
 
 clean: 
 	rm -rf *.h *.c *.o *.output *.dot $(BIN)
