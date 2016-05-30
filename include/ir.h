@@ -10,6 +10,7 @@
 #define REG_V 2
 #define REG_RA 31
 #define REG_STACK 23
+#define REG_SP 29
 
 #define RS      0x03e00000
 #define RT      0x001f0000
@@ -23,6 +24,7 @@
 #define OP_SPECIAL2 0x70000000
 #define OP_LW       0x98000000
 #define OP_ADDI     0x20000000
+#define OP_ADDIU    0x24000000
 #define OP_LUI      0x3c000000
 #define OP_SLTI     0x28000000
 #define OP_SLTIU    0x2c000000

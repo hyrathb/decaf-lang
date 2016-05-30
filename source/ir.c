@@ -9,6 +9,9 @@ static uint32_t t = 8;
 
 struct op zero = {0, 0};
 
+extern struct stringlist *stringlist;
+struct symres root;
+
 void reset_ir_gen()
 {
 }
@@ -55,13 +58,11 @@ uint32_t gen_readint(struct ir *ir)
     return REG_A+0;
 }
 
-uint32_t gen_lw(uint32_t base, uint32_t offset, struct ir *ir)
+void gen_lw(uint32_t base, uint32_t rt, uint32_t offset, struct ir *ir)
 {
-    uint32_t treg = get_tmp_reg();
-    uint32_t op = OP_LW | base << TO_RS | treg << TO_RT | offset&IMM;
+    uint32_t op = OP_LW | base << TO_RS | rt << TO_RT | offset&IMM;
     tcode[ir->number++] = op;
-    DBGPRINT("lw %u(s7), %d\n", offset, treg);
-    return treg;
+    DBGPRINT("lw %d(%u), %u\n", offset, base, rt);
 }
 
 uint32_t gen_not(uint32_t ops, struct ir *ir)
@@ -73,7 +74,7 @@ uint32_t gen_not(uint32_t ops, struct ir *ir)
     return treg;
 }
 
-uint32_t gen_realloc_addr(const char *name)
+uint32_t gen_realloc_addr(const char *name, struct ir *ir)
 {
     uint32_t treg = get_tmp_reg();
     uint32_t op = OP_LUI | treg << TO_RT | 0;
@@ -175,9 +176,18 @@ void gen_or(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     DBGPRINT("or %u, %u, %u\n", rs, rt, rd);
 }
 
+void gen_addiu(uint32_t rs, uint32_t rt, uint32_t imm, struct ir *ir)
+{
+    uint32_t op = OP_ADDIU | rs << TO_RS | rt << TO_RT | imm&IMM;
+    tcode[ir->number++] = op;
+    DBGPRINT("addiu %u, %u, #%u\n", rs, rt, imm);
+}
+
 uint32_t get_tmp_arg(uint32_t offset, struct ir *ir)
 {
-    return gen_lw(REG_STACK, offset, ir);
+    uint32_t treg = get_tmp_reg();
+    gen_lw(REG_STACK, treg, offset, ir);
+    return treg;
 }
 
 uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
@@ -192,7 +202,7 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
         if (reg == -1)
         {
             uint32_t t_num = atoi(var+1);
-            offset = func->tvarsize - (t_num+1)*PSIZE;
+            offset = func->tvarsize - t_num*PSIZE;
             return get_tmp_arg(offset, ir);
         }
         return reg;
@@ -204,7 +214,7 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
             reg = in_reg(var, NULL);
             if (reg == -1)
             {
-                offset = func->tvarsize + func->uvarsize + func->formalsize - PSIZE;
+                offset = func->tvarsize + func->uvarsize + func->formalsize;
                 return get_tmp_arg(offset, ir);
             }
             return reg;
@@ -236,7 +246,9 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
     }
     case '*':
     {
-        return gen_lw(get_var(var+1, ir, func), 0, ir);
+        uint32_t treg = get_tmp_reg();
+        gen_lw(get_var(var+1, ir, func), treg, 0, ir);
+        return treg;
     }
     default:
     {
@@ -249,18 +261,20 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
         {
         case SCOPE_LOCAL:
         {
-            offset = func->tvarsize + func->uvarsize - detail->offset - PSIZE;
+            offset = func->tvarsize + func->uvarsize - detail->offset;
             return get_tmp_arg(offset, ir);
         }
         case SCOPE_FORMAL:
         {
-            offset = func->tvarsize + func->uvarsize + func->formalsize - detail->offset - PSIZE;
+            offset = func->tvarsize + func->uvarsize + func->formalsize - detail->offset;
             return get_tmp_arg(offset, ir);
         }
         case SCOPE_GLOBAL:
         {
-            uint32_t base = gen_realloc_addr(var);
-            return gen_lw(base, detail->offset, ir);
+            uint32_t base = gen_realloc_addr(var, ir);
+            uint32_t treg = get_tmp_reg();
+            gen_lw(base, treg, 0, ir);
+            return treg;
         }
         default:
             return 0;
@@ -282,7 +296,7 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
         if (reg == -1)
         {
             num = atoi(l+1);
-            offset = func->tvarsize - (num+1)*PSIZE;
+            offset = func->tvarsize - num*PSIZE;
             gen_sw(REG_STACK, offset, r, ir);
             return;
         }
@@ -310,20 +324,20 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
             {
             case SCOPE_LOCAL:
             {
-                offset = func->tvarsize + func->uvarsize - detail->offset - PSIZE;
+                offset = func->tvarsize + func->uvarsize - detail->offset;
                 gen_sw(REG_STACK, offset, r, ir);
                 return;
             }
             case SCOPE_FORMAL:
             {
-                offset = func->tvarsize + func->uvarsize + func->formalsize - detail->offset - PSIZE;
+                offset = func->tvarsize + func->uvarsize + func->formalsize - detail->offset;
                 gen_sw(REG_STACK, offset, r, ir);
                 return;
             }
             case SCOPE_GLOBAL:
             {
-                uint32_t base = gen_realloc_addr(var);
-                gen_sw(base, detail->offset, r, ir);
+                uint32_t base = gen_realloc_addr(var, ir);
+                gen_sw(base, 0, r, ir);
                 return;
             }
             default:
@@ -347,6 +361,114 @@ void gen_call_mem(uint32_t i, struct ir ir[], struct func_detail *func)
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
     return;
+}
+
+void gen_call(uint32_t i, struct ir ir[])
+{
+    char func_name[20];
+    uint32_t l;
+    uint32_t op;
+    ir[i].generated = 1;
+    sscanf(ir[i].code, "%s", func_name);
+    l = gen_realloc_addr(func_name, ir+i);
+    op = OP_JALR | l << TO_RS | REG_RA << TO_RD;
+    tcode[ir[i].number++] = op;
+    DBGPRINT("jalr %u\n", l);
+    return;
+}
+
+void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    int type;
+    uint32_t reg, rl;
+    uint32_t op;
+    char l[20];
+    if[i].generated = 1;
+    sscanf(ir[i].code, "%d%s", &type, l);
+    reg = get_var(l, ir+i, func);
+    gen_addu(reg, REG_ZERO, REG_A+1, ir+i);
+    uint32_t strtab = gen_realloc_addr(".strs", ir+i);
+    switch(type)
+    {
+    case D_INT:
+        gen_addiu(strtab, stringlist->next->i, REG_A+0, ir+i);
+        break;
+    case D_DOUBLE:
+        gen_addiu(strtab, stringlist->next->next->i, REG_A+0, ir+i);
+        break;
+    case D_STRING:
+        gen_addiu(strtab, stringlist->next->next->next->i, REG_A+0, ir+i);
+        break;
+    }
+    rl = gen_realloc_addr("printf", ir+i);
+    op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
+    tcode[ir[i].number++] = op;
+    DBGPRINT("jalr %u\n", rl);
+}
+
+void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    int type;
+    uint32_t rl, rr;
+    uint32_t op;
+    char l[20], r[20], class[20];
+    if[i].generated = 1;
+    sscanf(ir[i].code, "%s%d%s", l, &type, r);
+    rr = get_var(r, ir+i, func);
+    
+    gen_addu(rr, REG_ZERO, REG_A+0, ir+i);
+    rl = gen_realloc_addr("malloc", ir+i);
+    op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
+    tcode[ir[i].number++] = op;
+    DBGPRINT("jalr %u\n", l);
+    
+    save_var(l, REG_A+0, ir+i, func);
+    
+    if (type == D_CLASS)
+    {
+        sscanf(ir[i].code, "%s%d%s", l, &type, r, class);
+        struct symhash *r = sym_get(&root, class);
+        struct class_detail *detail = r->detail;
+        uint32_t classtab = gen_realloc_addr(".class", ir+i);
+        uint32_t treg = get_tmp_reg();
+        gen_addiu(classtab, detail->offset, treg, ir+i);
+        gen_sw(REG_A+0, 0, treg, ir+i);
+    }
+}
+
+void gen_ret(uint32_t i, struct ir ir[])
+{
+    uint32_t op;
+    ir[i].generated = 1;
+    op = OP_JR | REG_RA << TO_RS;  
+    tcode[ir[i].number++] = op;
+    DBGPRINT("jr %u\n", REG_RA);
+    return;
+}
+
+void gen_save_regs(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    uint32_t rsize = get_tmp_reg();
+    uint32_t formals;
+    ir[i].generated = 1;
+    gen_addiu(REG_SP, REG_SP, -(func->stacksize+PSIZE), ir+i);
+    gen_sw(REG_SP, func->stacksize+PSIZE+PSIZE, REG_RA, ir+i);
+    gen_sw(REG_SP, func->stacksize+PSIZE, REG_STACK, ir+i);
+    for (formals=0; formals<=func->formalsize; formals+=PSIZE)
+    {
+        gen_sw(REG_SP, func->stacksize-formals, REG_A+formals/PSIZE, ir+i);
+    }
+    gen_addu(REG_SP, REG_ZERO, REG_STACK, ir+i);
+}
+
+void gen_restore_regs(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    uint32_t rsize = get_tmp_reg();
+    uint32_t formals;
+    ir[i].generated = 1;
+    gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
+    gen_lw(REG_SP, REG_RA, func->stacksize+PSIZE+PSIZE, ir+i);
+    gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE, ir+i);
 }
 
 void gen_single(uint32_t i, struct ir ir[], struct func_detail *func)
@@ -439,22 +561,22 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func)
             gen_call(i, ir);
             break;
         case IR_RET:
-            gen_ir_ret(i, ir);
+            gen_ret(i, ir);
             break;
         case IR_SAVE_REGS:
-            gen_ir_save_regs(i, ir);
+            gen_save_regs(i, ir, func);
             break;
         case IR_RESTORE_REGS:
-            gen_ir_restore_regs(i, ir);
+            gen_restore_regs(i, ir, func);
             break;
         case IR_PRINT:
-            gen_ir_print(i, ir);
+            gen_print(i, ir, new);
             break;
         case IR_NEW:
-            gen_ir_new(i, ir);
+            gen_new(i, ir, new);
             break;
         case IR_B:
-            gen_ir_branch(i, ir);
+            gen_branch(i, ir);
             break;
         case IR_J:
             gen_j(i, ir);

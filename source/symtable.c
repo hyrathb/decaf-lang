@@ -6,7 +6,7 @@
 #include <string.h>
 
 struct symhash *roothash=NULL;
-struct symres root={SCOPE_GLOBAL, 0, 0, &roothash, NULL};
+struct symres root={SCOPE_GLOBAL, 0, 0, 0, &roothash, NULL};
 struct stringlist slist = {NULL, 0, NULL}, *stringlist = &slist;
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
@@ -43,7 +43,8 @@ static uint32_t tmp_var_i=0;
 #define new_string(s) {         struct stringlist *new_string = malloc(sizeof(struct stringlist)); \
                                 new_string->s = s; \
                                 new_string->i = stringlist->i; \
-                                ++stringlist->i; \
+                                new_string->length = strlen(s); \
+                                stringlist->i += new_string->length+1; \
                                 new_string->next = stringlist->next; \
                                 stringlist->next = new_string;}
 
@@ -971,8 +972,11 @@ char *parse_expr(int indent, struct semantics *s)
         DBGPRINT("new expr:\n");
         struct symhash *sym;
         parse_ident(indent+2, s->expr->id, 1);
+        r = get_tmp_var();
+        sprintf(tir, "%s $%u =", r, PSIZE);
+        new_ir(IR_SINGLE);
         l = get_tmp_var();
-        sprintf(tir, "%s %d %s #1", l, D_TYPE, s->expr->id->text);
+        sprintf(tir, "%s %d %s %s", l, D_TYPE, r, s->expr->id->text);
         new_ir(IR_NEW);
         
         sym = sym_get(current, s->expr->id->text);
@@ -995,6 +999,10 @@ char *parse_expr(int indent, struct semantics *s)
         DBGPRINT("newarray expr:\n");
         l = get_tmp_var();
         r = parse_expr(indent+2, s->expr->expr1);
+        
+        sprintf(tir, "%s %s $%u *", r, r, PSIZE);
+        new_ir(IR_DOUBLE);
+        
         parse_type(indent+2, s->expr->type);
         int btype = get_basic_type(s->expr->type->vtype);
         if (btype == D_CLASS)
@@ -1002,7 +1010,7 @@ char *parse_expr(int indent, struct semantics *s)
             struct type *t = s->expr->type->vtype;
             while (t->btype == D_ARRAY)
                 t = t->arr_type->vtype;
-            sprintf(tir, "%s %d %s %s", l, D_TYPE, t->id->text, r);
+            sprintf(tir, "%s %d %s %s", l, D_TYPE, r, t->id->text);
             
             sym = sym_get(current, t->id->text);
             if (!sym || sym->type != D_TYPE)
@@ -1506,6 +1514,7 @@ parseit(classdefine)
     new_field(SCOPE_CLASS);
     new_class->vtable_size = 0;
     new_class->env = current;
+    new_class->offset = current->current_class_offset;
     parse_fields(indent+2, s->classdefine->fields, 1);
     new_class->size = current->current_var_offset + PSIZE;
     new_class->vtable = malloc(new_class->vtable_size);
@@ -1515,6 +1524,7 @@ parseit(classdefine)
     struct symhash *si;
     DPRINTSYM(si);
     current = current->parent;
+    current->current_class_offset += new_class->vtable_size;
 }
 
 parseit(protype)

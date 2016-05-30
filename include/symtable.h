@@ -40,6 +40,7 @@ struct symres
     enum scope scope;
     uint32_t current_var_offset;
     uint32_t current_func_offset;
+    uint32_t current_class_offset;
     struct symhash **table;
     struct symres *parent;
 };
@@ -88,6 +89,7 @@ struct class_detail
     struct class_detail *base;
     struct interface_details *interfaces;
     struct symres *env;
+    uint32_t offset;
 };
 
 struct var_detail
