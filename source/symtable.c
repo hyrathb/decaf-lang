@@ -7,7 +7,7 @@
 
 struct symhash *roothash=NULL;
 struct symres root={SCOPE_GLOBAL, 0, 0, 0, &roothash, NULL};
-struct stringlist slist = {NULL, 0, NULL}, *stringlist = &slist;
+struct stringlist slist = {0, NULL, 0, NULL}, *stringlist = &slist;
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
 static struct func_detail *current_func = NULL;
@@ -40,10 +40,10 @@ static uint32_t tmp_var_i=0;
                                 set_type(a, x); \
 }
 
-#define new_string(s) {         struct stringlist *new_string = malloc(sizeof(struct stringlist)); \
-                                new_string->s = s; \
+#define new_string(str) {         struct stringlist *new_string = malloc(sizeof(struct stringlist)); \
+                                new_string->s = str; \
                                 new_string->i = stringlist->i; \
-                                new_string->length = strlen(s); \
+                                new_string->length = strlen(str); \
                                 stringlist->i += new_string->length+1; \
                                 new_string->next = stringlist->next; \
                                 stringlist->next = new_string;}
@@ -67,9 +67,9 @@ static uint32_t tmp_var_i=0;
                       { \
                             if (current_func->irlist[x].code) \
                                 \
-                            {DBGPRINT("%lu %d %s \n", x, current_func->irlist[x].type, current_func->irlist[x].code);} \
+                            {DBGPRINT("%u %d %s \n", x, current_func->irlist[x].type, current_func->irlist[x].code);} \
                             else \
-                            {DBGPRINT("%lu %d\n", x, current_func->irlist[x].type);}    \
+                            {DBGPRINT("%u %d\n", x, current_func->irlist[x].type);}    \
                       } \
                       DBGPRINT("\n");}
 #else
@@ -88,7 +88,7 @@ char *get_tmp_var()
 {
     static char tmpname[20];
     char *s;
-    sprintf(tmpname, "!%lu", tmp_var_i++);
+    sprintf(tmpname, "!%u", tmp_var_i++);
     s = malloc(strlen(tmpname) + 1);
     strcpy(s, tmpname);
     current_func->stacksize += PSIZE;
@@ -124,16 +124,6 @@ struct symhash *sym_class_get(struct class_detail *class, const char *i)
         class = class->base;
     }
     return NULL;
-}
-
-int in_class(struct symres *table)
-{
-    struct symhash *n;
-    while (table && table->scope != SCOPE_CLASS)
-    {
-        table = table->parent;
-    }
-    return table->scope == SCOPE_CLASS;
 }
 
 struct symhash *sym_get(struct symres *table, const char *i)
@@ -325,7 +315,7 @@ char *parse_const(int indent, struct semantics *s)
     case C_SCONST:
         DBGPRINT("string const: %s\n", s->s_val);
         new_string(s->s_val);
-        sprintf(tir, "$s%lu", new_string->i);
+        sprintf(tir, "$s%u", stringlist->next->i);
         l = malloc(strlen(tir) + 1);
         strcpy(l, tir);
         break;
@@ -522,7 +512,10 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
             strcpy(r, "#dx");
         }
         else
+        {
             sym = sym_get(current, s->call->id->text);
+            is_member = 0;
+        }
     }
     if (is_member)
         DBGPRINT("member function call expr:\n");
@@ -567,7 +560,7 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
                 new_ir(IR_SINGLE);
                 mfree(r);
                 r = get_tmp_var();
-                sprintf(tir, "%s %s $%lu +", r, l, detail->offset);
+                sprintf(tir, "%s %s $%u +", r, l, detail->offset);
                 new_ir(IR_DOUBLE);
                 mfree(l);
                 l = get_tmp_var();
@@ -607,14 +600,11 @@ char *parse_lvalue(int indent, struct semantics *s)
     case LVAL_IDENT:
         DBGPRINT("identifier as lvalue: \n");
         parse_ident(indent+2, s->lvalue->id, 1);
-        if (in_class(current))
+        id = sym_class_get(current_class, s->lvalue->id->text);
+        if (!id)
         {
-            id = sym_class_get(current_class, s->lvalue->id->text);
-            if (!id)
-                id = sym_get(current, s->lvalue->id->text);
-        }
-        else
             id = sym_get(current, s->lvalue->id->text);
+        }
         detail = (struct var_detail *)id->detail;
         
         s->lvalue->t = detail->is_array?D_ARRAY:detail->type;
@@ -626,7 +616,7 @@ char *parse_lvalue(int indent, struct semantics *s)
             r = malloc(strlen("#dx")+1);
             strcpy(r, "#dx");
             r2 = get_tmp_var();
-            sprintf(tir, "%s %s $%lu +", r2, r, PSIZE + detail->offset);
+            sprintf(tir, "%s %s $%u +", r2, r, PSIZE + detail->offset);
             new_ir(IR_DOUBLE);
             mfree(r);
             l = malloc(strlen(r2) + 2);
@@ -655,7 +645,7 @@ char *parse_lvalue(int indent, struct semantics *s)
         s->lvalue->class = detail->class;
         
         r2 = get_tmp_var();
-        sprintf(tir, "%s %s $%lu +", r2, r, PSIZE + detail->offset);
+        sprintf(tir, "%s %s $%u +", r2, r, PSIZE + detail->offset);
         new_ir(IR_DOUBLE);
         mfree(r);
         l = malloc(strlen(r2) + 2);
@@ -1057,7 +1047,7 @@ parseit(ifstm)
     irplace2 = current_func->ircount;
     ++current_func->ircount;
     
-    sprintf(tir, "%s %lu", e1, current_func->ircount);
+    sprintf(tir, "%s %u", e1, current_func->ircount);
     tirs[irplace1].type = IR_B;
     tirs[irplace1].env = current;
     tirs[irplace1].code = malloc(strlen(tir)+1);
@@ -1066,7 +1056,7 @@ parseit(ifstm)
     ind;
     DBGPRINT("then:\n");
     parse_stm(indent+2, s->if_stm->stm1);
-    sprintf(tir, "%lu", current_func->ircount);
+    sprintf(tir, "%u", current_func->ircount);
     tirs[irplace2].type = IR_J;
     tirs[irplace2].env = current;
     tirs[irplace2].code = malloc(strlen(tir)+1);
@@ -1085,16 +1075,16 @@ parseit(whilestm)
     current_func->ircount += 2;
     
     parse_stm(indent+2, s->whilestm->stm);
-    sprintf(tir, "%lu", loop_entery);
+    sprintf(tir, "%u", loop_entery);
     new_ir(IR_J);
     
     loop_body_end = current_func->ircount;
-    sprintf(tir, "%s %lu", e, loop_cond_end+2);
+    sprintf(tir, "%s %u", e, loop_cond_end+2);
     tirs[loop_cond_end].type = IR_B;
     tirs[loop_cond_end].env = current;
     tirs[loop_cond_end].code = malloc(strlen(tir)+1);
     strcpy(tirs[loop_cond_end].code, tir);
-    sprintf(tir, "%lu", loop_body_end);
+    sprintf(tir, "%u", loop_body_end);
     tirs[loop_cond_end+1].type = IR_J;
     tirs[loop_cond_end+1].env = current;
     tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
@@ -1133,16 +1123,16 @@ parseit(forstm)
     ind;
     DBGPRINT("ACC:\n");
     parse_expr_or_not(indent+2, s->forstm->expr_or_not2);
-    sprintf(tir, "%lu", loop_entery);
+    sprintf(tir, "%u", loop_entery);
     new_ir(IR_J);
     
     loop_body_end = current_func->ircount;
-    sprintf(tir, "%s %lu", e, loop_cond_end+2);
+    sprintf(tir, "%s %u", e, loop_cond_end+2);
     tirs[loop_cond_end].type = IR_B;
     tirs[loop_cond_end].env = current;
     tirs[loop_cond_end].code = malloc(strlen(tir)+1);
     strcpy(tirs[loop_cond_end].code, tir);
-    sprintf(tir, "%lu", loop_body_end);
+    sprintf(tir, "%u", loop_body_end);
     tirs[loop_cond_end+1].type = IR_J;
     tirs[loop_cond_end+1].env = current;
     tirs[loop_cond_end+1].code = malloc(strlen(tir)+1);
@@ -1526,6 +1516,7 @@ parseit(classdefine)
     DPRINTSYM(si);
     current = current->parent;
     current->current_class_offset += new_class->vtable_size;
+    current_class = NULL;
 }
 
 parseit(protype)

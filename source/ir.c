@@ -409,6 +409,7 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
         gen_addiu(strtab, stringlist->next->next->i, REG_A+0, ir+i);
         break;
     case D_STRING:
+        gen_addu(strtab, REG_A+1, REG_A+1, ir+i);
         gen_addiu(strtab, stringlist->next->next->next->i, REG_A+0, ir+i);
         break;
     }
