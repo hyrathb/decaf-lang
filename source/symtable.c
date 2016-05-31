@@ -4,12 +4,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linux/elf.h>
 
 struct symhash *roothash=NULL;
 struct symres root={SCOPE_GLOBAL, 0, 0, 0, &roothash, NULL};
 struct stringlist slist = {0, NULL, 0, NULL}, *stringlist = &slist;
+
+Elf32_Ehdr elfheader;
+uint8_t text[10240];
+uint8_t data[2048];     //use data seg for vtable, bss seg for globals
+Elf32_Rel textrealloc[2048];
+Elf32_Rel datarealloc[2048];
+Elf32_Sym symtab[2048];
+char strtab[10240];
+
+uint32_t current_text_reallocs=0;
+uint32_t current_data_reallocs=0;
+uint32_t current_syms=0;
+uint32_t current_string_offset=0;
+
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
+static const char *current_class_name = NULL;
 static struct func_detail *current_func = NULL;
 static char tir[50];
 static struct ir tirs[2048];
@@ -412,6 +428,16 @@ parseit(var)
     new_var->size = PSIZE; ///hehe
     new_var->scope = current->scope;
     sym_add(current, s->var->id->text, s->var->type->vtype->btype, new_var);
+    if (current->scope == SCOPE_GLOBAL)
+    {
+        strcpy(strtab+current_string_offset, s->var->id->text);
+        symtab[current_syms].st_name = current_string_offset;
+        symtab[current_syms].size = PSIZE;
+        symtab[current_syms].info = (STB_GLOBAL << 4) | STT_OBJECT;
+        symtab[current_syms].other = 0;
+        symtab[current_syms].shndx = 3;
+        current_string_offset += strlen(strtab+current_string_offset)+1;
+    }
     current->current_var_offset += new_var->size + (new_var->size % ROUNDSIZE);
 }
 
@@ -1331,6 +1357,7 @@ parseit(funcdefine)
         new_func->formalsize = 0;
     }
     new_func->formals = current;
+    new_func->size = 0;
     new_func->stacksize = 0;
     new_func->uvarsize = 0;
     new_func->tvarsize = 0;
@@ -1379,16 +1406,30 @@ parseit(funcdefine)
     for (ri=0; ri<current_func->ircount; ++ri)
     {
         gen_code(ri, current_func->irlist, current_func);
+        memcpy(text+root.current_func_offset+current_func->size, current_func->irlist[ri].bcode, current_func->irlist[i].number*PSIZE);
+        current_func->size += current_func->irlist[i].number*PSIZE;
     }
     
     if (current->scope != SCOPE_CLASS)
     {
         new_func->offset = root.current_func_offset;
+        strcpy(strtab+current_string_offset, s->funcdefine->id->text);
     }
     else
     {
         current_class->vtable[new_func->offset/PSIZE] = root.current_func_offset;
+        sprintf(strtab+current_string_offset, "%s.%s", current_class_name, s->funcdefine->id->text);
+        datarealloc[current_data_reallocs].r_offset = root.current_class_offset+new_func->offset;
+        datarealloc[current_data_reallocs].r_info = current_syms;
+        ++current_data_reallocs;
     }
+    symtab[current_syms].st_name = current_string_offset;
+    symtab[current_syms].size = current_func->size;
+    symtab[current_syms].info = (STB_GLOBAL << 4) | STT_FUNC;
+    symtab[current_syms].other = 0;
+    symtab[current_syms].shndx = 1;
+    ++current_syms;
+    current_string_offset += strlen(strtab+current_string_offset)+1;
     root.current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
 }
 
@@ -1492,6 +1533,7 @@ parseit(classdefine)
     parse_ident(indent+2, s->classdefine->id, 0);
     struct class_detail *new_class=malloc(sizeof(struct class_detail));
     current_class = new_class;
+    current_class_name = s->classdefine->id->text;
     sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
     if (s->classdefine->extend && s->classdefine->extend->extend && s->classdefine->extend->extend->id)
     {
@@ -1521,6 +1563,7 @@ parseit(classdefine)
     parse_fields(indent+2, s->classdefine->fields, 0);
     struct symhash *si;
     DPRINTSYM(si);
+    
     current = current->parent;
     root.current_class_offset += new_class->vtable_size;
     current_class = NULL;
