@@ -1373,6 +1373,7 @@ parseit(funcdefine)
     for (ri =0; ri<current_func->ircount; ++ri)
     {
         tirs[ri].generated = 0;
+        tirs[ri].addressed = 0;
         tirs[ri].number = 0;
     }
         

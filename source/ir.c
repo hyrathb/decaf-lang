@@ -304,7 +304,14 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
     case '#':
     {
         num = atoi(l+1);
-        gen_addu(r, REG_ZERO, REG_A+num, ir);
+        if (num < 4)
+        {
+            gen_addu(r, REG_ZERO, REG_A+num, ir);
+        }
+        else
+        {
+            gen_sw(REG_STACK, -(2+num)*PSIZE, r, ir);
+        }
         return;
     }
     case '*':
@@ -354,12 +361,14 @@ void gen_call_mem(uint32_t i, struct ir ir[], struct func_detail *func)
     char l[20];
     uint32_t rl;
     uint32_t op;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%s", l);
     rl = get_var(l, ir+i, func);
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
+    gen_nop(ir+i);
     return;
 }
 
@@ -368,12 +377,14 @@ void gen_call(uint32_t i, struct ir ir[])
     char func_name[20];
     uint32_t l;
     uint32_t op;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%s", func_name);
     l = gen_realloc_addr(func_name, ir+i);
     op = OP_JALR | l << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", l);
+    gen_nop(ir+i);
     return;
 }
 
@@ -383,7 +394,8 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     uint32_t reg, rl;
     uint32_t op;
     char l[20];
-    if[i].generated = 1;
+    if[i].addressed = 1;
+    ir[i].generated = 1;
     sscanf(ir[i].code, "%d%s", &type, l);
     reg = get_var(l, ir+i, func);
     gen_addu(reg, REG_ZERO, REG_A+1, ir+i);
@@ -404,6 +416,7 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
+    gen_nop(ir+i);
 }
 
 void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
@@ -412,7 +425,8 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     uint32_t rl, rr;
     uint32_t op;
     char l[20], r[20], class[20];
-    if[i].generated = 1;
+    if[i].addressed = 1;
+    ir[i].generated = 1;
     sscanf(ir[i].code, "%s%d%s", l, &type, r);
     rr = get_var(r, ir+i, func);
     
@@ -421,6 +435,7 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", l);
+    gen_nop(ir+i);
     
     save_var(l, REG_A+0, ir+i, func);
     
@@ -439,10 +454,12 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
 void gen_ret(uint32_t i, struct ir ir[])
 {
     uint32_t op;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     op = OP_JR | REG_RA << TO_RS;  
     tcode[ir[i].number++] = op;
     DBGPRINT("jr %u\n", REG_RA);
+    gen_nop(ir+i)
     return;
 }
 
@@ -450,12 +467,15 @@ void gen_save_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     uint32_t rsize = get_tmp_reg();
     uint32_t formals;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     gen_addiu(REG_SP, REG_SP, -(func->stacksize+PSIZE), ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE+PSIZE, REG_RA, ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE, REG_STACK, ir+i);
     for (formals=0; formals<=func->formalsize; formals+=PSIZE)
     {
+        if (formals >= 4)
+            break;
         gen_sw(REG_SP, func->stacksize-formals, REG_A+formals/PSIZE, ir+i);
     }
     gen_addu(REG_SP, REG_ZERO, REG_STACK, ir+i);
@@ -465,10 +485,118 @@ void gen_restore_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     uint32_t rsize = get_tmp_reg();
     uint32_t formals;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
     gen_lw(REG_SP, REG_RA, func->stacksize+PSIZE+PSIZE, ir+i);
     gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE, ir+i);
+}
+
+void gen_nop(struct ir *ir)
+{
+    tcode[ir->number++] = 0;
+}
+
+void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    char e[20];
+    uint32_t irnum;
+    uint32_t offset=0;
+    uint32_t j;
+    sscanf(ir[i].code, "%s%u", e, &irnum);
+    if (ir[i].generated)
+    {
+        if (ir[i].addressed)
+            return;
+        for (j=0; j<ir[i].number; ++j)
+        {
+            if (ir[i].bcode[j] & 0xfc == OP_BNE)
+            {
+                offset += ir[i].number - j;
+                uint32_t k;
+                for (k=i+1; k<=irnum; ++k)
+                    offset += ir[k].number;
+                --offset;
+                ir[i].bcode[j] |= offset;
+                break;
+            }
+        }
+    }
+    else
+    {
+        ir[i].generated = 1;
+        uint32_t r = get_var(e, ir+i, func);
+        uint32_t op = OP_BNE | r << TO_RS | REG_ZERO << TO_RT;
+        if (i >= irnum)
+        {
+            ir[i].addressed = 1;
+            offset += ir[i].number;
+            for (j=irnum; j<i; ++j)
+            {
+                offset += ir[j].number;
+            }
+            offset = -offset;
+            --offset;
+            op |= offset;
+        }
+        else
+        {
+            ir[i].addressed = 0;
+        }
+        tcode[ir[i].number++] = op;
+        BGPRINT("bne %u,0,#%d\n", r, offset);
+        gen_nop(ir+i);
+    }
+}
+
+void gen_j(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    uint32_t irnum;
+    uint32_t offset=0;
+    uint32_t j;
+    sscanf(ir[i].code, "%u", &irnum);
+    if (ir[i].generated)
+    {
+        if (ir[i].addressed)
+            return;
+        for (j=0; j<ir[i].number; ++j)
+        {
+            if (ir[i].bcode[j] & 0xfc == OP_BEQ)
+            {
+                offset += ir[i].number - j;
+                uint32_t k;
+                for (k=i+1; k<=irnum; ++k)
+                    offset += ir[k].number;
+                --offset;
+                ir[i].bcode[j] |= offset;
+                break;
+            }
+        }
+    }
+    else
+    {
+        ir[i].generated = 1;
+        uint32_t op = OP_BEQ | REG_ZERO << TO_RS | REG_ZERO << TO_RT;
+        if (i >= irnum)
+        {
+            ir[i].addressed = 1;
+            offset += ir[i].number;
+            for (j=irnum; j<i; ++j)
+            {
+                offset += ir[j].number;
+            }
+            offset = -offset;
+            --offset;
+            op |= offset;
+        }
+        else
+        {
+            ir[i].addressed = 0;
+        }
+        tcode[ir[i].number++] = op;
+        DBGPRINT("b #%d\n", offset);
+        gen_nop(ir+i);
+    }
 }
 
 void gen_single(uint32_t i, struct ir ir[], struct func_detail *func)
@@ -476,6 +604,7 @@ void gen_single(uint32_t i, struct ir ir[], struct func_detail *func)
     char l[20], r[20], op[3];
     uint32_t rr,rl;
     ir[i].generated = 1;
+    ir[i].addressed = 1;
     sscanf(ir[i].code, "%s%s%s", l, r, op);
     rr = get_var(r, ir[i].env, ir+i);
     if (op[0] == '!')
@@ -490,6 +619,7 @@ void gen_double(uint32_t i, struct ir ir[], struct func_detail *func)
     char l[20], r[20], r2[20], op[3];
     uint32_t rr, rr2, rl, rm;
     ir[i].generated = 1;
+    ir[i].addressed = 1;
     sscanf(ir[i].code, "%s%s%s%s", l, r, r2, op);
     rr = get_var(r, ir[i].env, ir+i);
     rr2 = get_var(r2, ir[i].env, ir+i);
@@ -543,8 +673,11 @@ void gen_double(uint32_t i, struct ir ir[], struct func_detail *func)
 
 void gen_code(uint32_t i, struct ir ir[], struct func_detail *func)
 {
-    if (ir[i].generated)
+    uint32_t new = 1;
+    if (ir[i].generated && ir[i].addressed)
         return;
+    if (ir[i].generated)
+        new = 0;
     reset_s();
     switch (ir[i].type)
     {
@@ -576,12 +709,18 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func)
             gen_new(i, ir, new);
             break;
         case IR_B:
-            gen_branch(i, ir);
+            gen_branch(i, ir, func);
             break;
         case IR_J:
-            gen_j(i, ir);
+            gen_j(i, ir, func);
             break;
         default:
             break;
+    }
+    if (new)
+    {
+        uint32_t size = ir[i].number*sizeof(uint32_t);
+        ir[i].bcode = malloc(size);
+        memcpy(ir[i].bcode, tcode, size);
     }
 }

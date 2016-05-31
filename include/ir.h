@@ -38,6 +38,8 @@
 #define OP_SLT      0x0000002a
 #define OP_AND      0x00000024
 #define OP_OR       0x00000025
+#define OP_BNE      0x14000000
+#define OP_BEQ      0x10000000
 
 enum ir_type
 {
@@ -58,12 +60,10 @@ enum ir_type
 struct ir
 {
     uint8_t generated;
+    uint8_t addressed;
     enum ir_type type;
-    union
-    {
-        char *code;
-        uint32_t *bcode;
-    };
+    char *code;
+    uint32_t *bcode;
     struct symres *env;
     uint32_t number;
 };
