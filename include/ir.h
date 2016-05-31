@@ -5,6 +5,7 @@
 #include "symtable.h"
 
 #define REG_ZERO 0
+#define REG_S 16
 #define REG_T 8
 #define REG_A 4
 #define REG_V 2
@@ -31,8 +32,10 @@
 #define OP_SW       0xac000000
 #define OP_ADDU     0x00000021
 #define OP_JALR     0x00000009
+#define OP_JR       0x00000008
 #define OP_SUBU     0x00000023
 #define OP_MUL      0x70000002
+#define OP_DIV      0x0000001a
 #define OP_MFHI     0x00000010
 #define OP_MFLO     0x00000012
 #define OP_SLT      0x0000002a
@@ -67,7 +70,5 @@ struct ir
     struct symres *env;
     uint32_t number;
 };
-
-void gen_code(uint32_t i, struct ir ir[]);
 
 #endif

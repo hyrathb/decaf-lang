@@ -22,8 +22,8 @@ LEXICAL_C := lexical.c
 GRAMMAR_C := decaf.c
 OBJS += lexical.o
 OBJS += decaf.o
-OBJS += symtable.o
-SOURCE += source/symtable.c
+OBJS += symtable.o ir.o
+SOURCE += source/symtable.c source/ir.c
 
 
 all: bin 

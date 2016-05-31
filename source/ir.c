@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "symtable.h"
 #include "ir.h"
 
@@ -6,11 +7,8 @@ static uint32_t tcode[50];
 
 static uint32_t s = 16;
 static uint32_t t = 8;
-
-struct op zero = {0, 0};
-
 extern struct stringlist *stringlist;
-struct symres root;
+extern struct symres root;
 
 void reset_ir_gen()
 {
@@ -19,7 +17,7 @@ void reset_ir_gen()
 void reset_s()
 {
     s = REG_S;
-    t = REG_T:
+    t = REG_T;
 }
 
 uint32_t get_reg(const char *id, struct symres *env)
@@ -46,9 +44,9 @@ uint32_t gen_imm(const char *imm, struct ir *ir)
 {
     uint32_t i = atoi(imm);
     uint32_t treg = get_tmp_reg();
-    uint32_t op = OP_LUI | treg << TO_RT | i&IMM;
+    uint32_t op = OP_LUI | (treg << TO_RT) | (i&IMM);
     tcode[ir->number++] = op;
-    DBGPRINT("lui %u, %u\n", treg, i);
+    DBGPRINT("lui %u, #%d\n", treg, (int32_t)i);
     return treg;
     
 }
@@ -60,7 +58,7 @@ uint32_t gen_readint(struct ir *ir)
 
 void gen_lw(uint32_t base, uint32_t rt, uint32_t offset, struct ir *ir)
 {
-    uint32_t op = OP_LW | base << TO_RS | rt << TO_RT | offset&IMM;
+    uint32_t op = OP_LW | (base << TO_RS) | (rt << TO_RT) | (offset&IMM);
     tcode[ir->number++] = op;
     DBGPRINT("lw %d(%u), %u\n", offset, base, rt);
 }
@@ -68,7 +66,7 @@ void gen_lw(uint32_t base, uint32_t rt, uint32_t offset, struct ir *ir)
 uint32_t gen_not(uint32_t ops, struct ir *ir)
 {
     uint32_t treg = get_tmp_reg();
-    uint32_t op = OP_SLTIU | ops << TO_RS | treg << TO_RT | 1;
+    uint32_t op = OP_SLTIU | (ops << TO_RS) | (treg << TO_RT) | 1;
     tcode[ir->number++] = op;
     DBGPRINT("sltiu %u, %u, 1\n", ops, treg);
     return treg;
@@ -85,9 +83,9 @@ uint32_t gen_realloc_addr(const char *name, struct ir *ir)
 
 void gen_sw(uint32_t base, uint32_t offset, uint32_t rt, struct ir *ir)
 {
-    uint32_t op = OP_SW | base << TO_RS | rt << TO_RT | offset&IMM;
+    uint32_t op = OP_SW | (base << TO_RS) | (rt << TO_RT) | (offset&IMM);
     tcode[ir->number++] = op;
-    DBGPRINT("sw %u(%u), %u", offset, base, rt);
+    DBGPRINT("sw %u(%u), %u\n", offset, base, rt);
 }
 
 void gen_addu(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -141,9 +139,9 @@ void gen_slt(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
 void gen_equ(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
 {
     gen_subu(rs, rt, rd, ir);
-    uint32_t op = OP_SLTIU | ops << TO_RS | treg << TO_RT | 1;
+    uint32_t op = OP_SLTIU | rd << TO_RS | rd << TO_RT | 1;
     tcode[ir->number++] = op;
-    DBGPRINT("sltiu %u, %u, 1\n", ops, treg);
+    DBGPRINT("sltiu %u, %u, #1\n", rd, rd);
 }
 
 void gen_le(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -176,11 +174,17 @@ void gen_or(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     DBGPRINT("or %u, %u, %u\n", rs, rt, rd);
 }
 
+void gen_nop(struct ir *ir)
+{
+    tcode[ir->number++] = 0;
+    DBGPRINT("nop\n");
+}
+
 void gen_addiu(uint32_t rs, uint32_t rt, uint32_t imm, struct ir *ir)
 {
-    uint32_t op = OP_ADDIU | rs << TO_RS | rt << TO_RT | imm&IMM;
+    uint32_t op = OP_ADDIU | (rs << TO_RS) | (rt << TO_RT) | (imm&IMM);
     tcode[ir->number++] = op;
-    DBGPRINT("addiu %u, %u, #%u\n", rs, rt, imm);
+    DBGPRINT("addiu %u, %u, #%d\n", rs, rt, (int32_t)imm);
 }
 
 uint32_t get_tmp_arg(uint32_t offset, struct ir *ir)
@@ -231,13 +235,17 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
     }
     case '$':
     {
-        if (!strcmp(var+1, "$readinteger"))
+        if (!strcmp(var+1, "readinteger"))
         {   
             return gen_readint(ir);
         }
         else if (!strcmp(var+1, "readline"))
         {
             return gen_readstring(ir);
+        }
+        else if (var[1] == 's')
+        {
+            return gen_imm(var+2, ir);
         }
         else
         {
@@ -257,7 +265,7 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
             return reg;
         struct symhash *r = sym_get(ir->env, var);
         struct var_detail *detail = r->detail;
-        switch (r->scope)
+        switch (detail->scope)
         {
         case SCOPE_LOCAL:
         {
@@ -292,7 +300,7 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
     {
     case '!':
     {
-        reg = in_reg(var, NULL);
+        reg = in_reg(l, NULL);
         if (reg == -1)
         {
             num = atoi(l+1);
@@ -322,12 +330,12 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
     }
     default:
     {
-        reg = in_reg(var, ir->env);
+        reg = in_reg(l, ir->env);
         if (reg == -1)
         {
-            struct symhash *r = sym_get(ir->env, var);
-            struct var_detail *detail = r->detail;
-            switch (r->scope)
+            struct symhash *sym = sym_get(ir->env, l);
+            struct var_detail *detail = sym->detail;
+            switch (detail->scope)
             {
             case SCOPE_LOCAL:
             {
@@ -343,7 +351,7 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
             }
             case SCOPE_GLOBAL:
             {
-                uint32_t base = gen_realloc_addr(var, ir);
+                uint32_t base = gen_realloc_addr(l, ir);
                 gen_sw(base, 0, r, ir);
                 return;
             }
@@ -394,7 +402,7 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     uint32_t reg, rl;
     uint32_t op;
     char l[20];
-    if[i].addressed = 1;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%d%s", &type, l);
     reg = get_var(l, ir+i, func);
@@ -403,14 +411,14 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     switch(type)
     {
     case D_INT:
-        gen_addiu(strtab, stringlist->next->i, REG_A+0, ir+i);
+        gen_addiu(strtab, REG_A+0, stringlist->next->i, ir+i);
         break;
     case D_DOUBLE:
-        gen_addiu(strtab, stringlist->next->next->i, REG_A+0, ir+i);
+        gen_addiu(strtab, REG_A+0, stringlist->next->next->i, ir+i);
         break;
     case D_STRING:
         gen_addu(strtab, REG_A+1, REG_A+1, ir+i);
-        gen_addiu(strtab, stringlist->next->next->next->i, REG_A+0, ir+i);
+        gen_addiu(strtab, REG_A+0, stringlist->next->next->next->i, ir+i);
         break;
     }
     rl = gen_realloc_addr("printf", ir+i);
@@ -426,7 +434,7 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     uint32_t rl, rr;
     uint32_t op;
     char l[20], r[20], class[20];
-    if[i].addressed = 1;
+    ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%s%d%s", l, &type, r);
     rr = get_var(r, ir+i, func);
@@ -435,20 +443,36 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     rl = gen_realloc_addr("malloc", ir+i);
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
-    DBGPRINT("jalr %u\n", l);
+    DBGPRINT("jalr %u\n", rl);
     gen_nop(ir+i);
     
     save_var(l, REG_A+0, ir+i, func);
     
-    if (type == D_CLASS)
+    if (type == D_TYPE)
     {
-        sscanf(ir[i].code, "%s%d%s", l, &type, r, class);
+        sscanf(ir[i].code, "%s%d%s%s", l, &type, r, class);
         struct symhash *r = sym_get(&root, class);
         struct class_detail *detail = r->detail;
         uint32_t classtab = gen_realloc_addr(".class", ir+i);
-        uint32_t treg = get_tmp_reg();
-        gen_addiu(classtab, detail->offset, treg, ir+i);
-        gen_sw(REG_A+0, 0, treg, ir+i);
+        uint32_t offsetreg = get_reg(NULL, NULL);
+        uint32_t startreg = get_reg(NULL, NULL);
+        uint32_t endreg = get_reg(NULL, NULL);
+        gen_addiu(classtab, offsetreg, detail->offset, ir+i);
+        gen_addu(REG_A+0, REG_ZERO, startreg, ir+i);
+        gen_addu(REG_A+0, rr, endreg, ir+i);
+        
+        gen_addiu(REG_ZERO, detail->size, REG_A+0, ir+i);
+        rl = gen_realloc_addr("malloc", ir+i);
+        op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
+        tcode[ir[i].number++] = op;
+        DBGPRINT("jalr %u\n", rl);
+        gen_nop(ir+i);
+        gen_sw(REG_A+0, 0, offsetreg, ir+i);
+        gen_sw(startreg, 0, REG_A+0, ir+i);
+        gen_addiu(startreg, startreg, PSIZE, ir+i);
+        op = OP_BNE | startreg << TO_RS | endreg << TO_RT | ((-6)&IMM);
+        tcode[ir[i].number++] = op;
+        DBGPRINT("bne %u, %u, -6\n", startreg, endreg);
     }
 }
 
@@ -460,22 +484,21 @@ void gen_ret(uint32_t i, struct ir ir[])
     op = OP_JR | REG_RA << TO_RS;  
     tcode[ir[i].number++] = op;
     DBGPRINT("jr %u\n", REG_RA);
-    gen_nop(ir+i)
+    gen_nop(ir+i);
     return;
 }
 
 void gen_save_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 {
-    uint32_t rsize = get_tmp_reg();
     uint32_t formals;
     ir[i].addressed = 1;
     ir[i].generated = 1;
     gen_addiu(REG_SP, REG_SP, -(func->stacksize+PSIZE), ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE+PSIZE, REG_RA, ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE, REG_STACK, ir+i);
-    for (formals=0; formals<=func->formalsize; formals+=PSIZE)
+    for (formals=0; formals<func->formalsize; formals+=PSIZE)
     {
-        if (formals >= 4)
+        if (formals >= 4*PSIZE)
             break;
         gen_sw(REG_SP, func->stacksize-formals, REG_A+formals/PSIZE, ir+i);
     }
@@ -484,18 +507,11 @@ void gen_save_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 
 void gen_restore_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 {
-    uint32_t rsize = get_tmp_reg();
-    uint32_t formals;
     ir[i].addressed = 1;
     ir[i].generated = 1;
     gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
     gen_lw(REG_SP, REG_RA, func->stacksize+PSIZE+PSIZE, ir+i);
     gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE, ir+i);
-}
-
-void gen_nop(struct ir *ir)
-{
-    tcode[ir->number++] = 0;
 }
 
 void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
@@ -511,17 +527,18 @@ void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
             return;
         for (j=0; j<ir[i].number; ++j)
         {
-            if (ir[i].bcode[j] & 0xfc == OP_BNE)
+            if ((ir[i].bcode[j] & 0xfc000000) == OP_BNE)
             {
                 offset += ir[i].number - j;
                 uint32_t k;
-                for (k=i+1; k<=irnum; ++k)
+                for (k=i+1; k<irnum; ++k)
                     offset += ir[k].number;
                 --offset;
                 ir[i].bcode[j] |= offset;
                 break;
             }
         }
+        ir[i].addressed = 1;
     }
     else
     {
@@ -545,7 +562,7 @@ void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
             ir[i].addressed = 0;
         }
         tcode[ir[i].number++] = op;
-        BGPRINT("bne %u,0,#%d\n", r, offset);
+        DBGPRINT("bne %u,0,#%d\n", r, offset);
         gen_nop(ir+i);
     }
 }
@@ -562,17 +579,18 @@ void gen_j(uint32_t i, struct ir ir[], struct func_detail *func)
             return;
         for (j=0; j<ir[i].number; ++j)
         {
-            if (ir[i].bcode[j] & 0xfc == OP_BEQ)
+            if ((ir[i].bcode[j] & 0xfc000000) == OP_BEQ)
             {
                 offset += ir[i].number - j;
                 uint32_t k;
-                for (k=i+1; k<=irnum; ++k)
+                for (k=i+1; k<irnum; ++k)
                     offset += ir[k].number;
                 --offset;
                 ir[i].bcode[j] |= offset;
                 break;
             }
         }
+        ir[i].generated = 1;
     }
     else
     {
@@ -603,11 +621,11 @@ void gen_j(uint32_t i, struct ir ir[], struct func_detail *func)
 void gen_single(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     char l[20], r[20], op[3];
-    uint32_t rr,rl;
+    uint32_t rr;
     ir[i].generated = 1;
     ir[i].addressed = 1;
     sscanf(ir[i].code, "%s%s%s", l, r, op);
-    rr = get_var(r, ir[i].env, ir+i);
+    rr = get_var(r, ir+i, func);
     if (op[0] == '!')
     {
         rr = gen_not(rr, ir);
@@ -618,12 +636,12 @@ void gen_single(uint32_t i, struct ir ir[], struct func_detail *func)
 void gen_double(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     char l[20], r[20], r2[20], op[3];
-    uint32_t rr, rr2, rl, rm;
+    uint32_t rr, rr2, rm;
     ir[i].generated = 1;
     ir[i].addressed = 1;
     sscanf(ir[i].code, "%s%s%s%s", l, r, r2, op);
-    rr = get_var(r, ir[i].env, ir+i);
-    rr2 = get_var(r2, ir[i].env, ir+i);
+    rr = get_var(r, ir+i, func);
+    rr2 = get_var(r2, ir+i, func);
     rm = get_tmp_reg();
     switch(op[0])
     {
@@ -664,7 +682,7 @@ void gen_double(uint32_t i, struct ir ir[], struct func_detail *func)
             gen_and(rr, rr2, rm, ir);
             break;
         case '|':
-            gen_or(rr, r2, rm, ir);
+            gen_or(rr, rr2, rm, ir);
             break;
         default:
             ;
@@ -704,10 +722,10 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func)
             gen_restore_regs(i, ir, func);
             break;
         case IR_PRINT:
-            gen_print(i, ir, new);
+            gen_print(i, ir, func);
             break;
         case IR_NEW:
-            gen_new(i, ir, new);
+            gen_new(i, ir, func);
             break;
         case IR_B:
             gen_branch(i, ir, func);

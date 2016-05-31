@@ -51,13 +51,11 @@ int main(int argc, string argv)
     int aa;
     int b;
     int c;
-    double d;
     string x;
     string y;
 
     aa=0-0x1234;
     b=3456;
-    d=12.e12;//test
     /*daslkfjkl***dsa
     asfkj8***jskda*/
     aa=0;
@@ -67,7 +65,5 @@ int main(int argc, string argv)
     for (c=0; c<100; c=c+1)
         for (b=0; b<200; b=b+1)
             aa = c+b;
-    if (aa>b && c<d)
-        aa=aa+b+c/d + 2-3;
     b=3+(2+1)+-3;
 }

@@ -15,6 +15,8 @@ static char tir[50];
 static struct ir tirs[2048];
 static uint32_t tmp_var_i=0;
 
+void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
+
 #define new_field(s) {struct symres *nt = malloc(sizeof(struct symres));\
                       nt->table = malloc(sizeof(struct symhash *)); \
                       nt->scope = s; \
@@ -285,43 +287,34 @@ char *parse_const(int indent, struct semantics *s)
     if (!s)
         return NULL;
     printindent(indent);
-    char *l = NULL;
+    char *l = get_tmp_var();
     switch (s->type)
     {
     case C_ICONST:
         DBGPRINT("int const: %d\n", s->i_val);
-        sprintf(tir, "$%d", s->i_val);
-        l = malloc(strlen(tir) + 1);
-        strcpy(l, tir);
+        sprintf(tir, "%s $%d =", l, s->i_val);
         break;
     case C_BCONST:
         DBGPRINT("bool const: %s\n", s->i_val?"true":"false");
-        sprintf(tir, "$%d", s->i_val);
-        l = malloc(strlen(tir) + 1);
-        strcpy(l, tir);
+        sprintf(tir, "%s $%d =", l, s->i_val);
         break;
     case C_DCONST:
         DBGPRINT("double const: %f\n", s->d_val);
-        sprintf(tir, "$%lf", s->d_val);
-        l = malloc(strlen(tir) + 1);
-        strcpy(l, tir);
+        sprintf(tir, "%s $%lf =", l, s->d_val);
         break;
     case C_NULL:
         DBGPRINT("null const\n");
-        sprintf(tir, "$0");
-        l = malloc(strlen(tir) + 1);
-        strcpy(l, tir);
+        sprintf(tir, "%s $0 =", l);
         break;        
     case C_SCONST:
         DBGPRINT("string const: %s\n", s->s_val);
         new_string(s->s_val);
-        sprintf(tir, "$s%u", stringlist->next->i);
-        l = malloc(strlen(tir) + 1);
-        strcpy(l, tir);
+        sprintf(tir, "%s $s%u =", l, stringlist->next->i);
         break;
     default:
         ;
     }
+    new_ir(IR_SINGLE);
     return l;
 }
 
@@ -1331,10 +1324,14 @@ parseit(funcdefine)
     if (new_func->is_member)
     {
         current->current_var_offset = PSIZE;
+        new_func->formalsize = PSIZE;
+    }
+    else
+    {
+        new_func->formalsize = 0;
     }
     new_func->formals = current;
     new_func->stacksize = 0;
-    new_func->formalsize = 0;
     new_func->uvarsize = 0;
     new_func->tvarsize = 0;
     parse_formals(indent+2, s->funcdefine->formals);
@@ -1360,7 +1357,7 @@ parseit(funcdefine)
     ++current_func->ircount;
     
     uint32_t ri;
-    for (ri =0; ri<current_func->ircount; ++ri)
+    for (ri=0; ri<current_func->ircount; ++ri)
     {
         tirs[ri].generated = 0;
         tirs[ri].addressed = 0;
@@ -1373,6 +1370,16 @@ parseit(funcdefine)
     current = current->parent;
         
     DPRINTIR(ri);
+    
+    for (ri=0; ri<current_func->ircount; ++ri)
+    {
+        gen_code(ri, current_func->irlist, current_func);
+    }
+    
+    for (ri=0; ri<current_func->ircount; ++ri)
+    {
+        gen_code(ri, current_func->irlist, current_func);
+    }
     
     if (current->scope != SCOPE_CLASS)
     {
@@ -1505,7 +1512,7 @@ parseit(classdefine)
     new_field(SCOPE_CLASS);
     new_class->vtable_size = 0;
     new_class->env = current;
-    new_class->offset = current->current_class_offset;
+    new_class->offset = root.current_class_offset;
     parse_fields(indent+2, s->classdefine->fields, 1);
     new_class->size = current->current_var_offset + PSIZE;
     new_class->vtable = malloc(new_class->vtable_size);
@@ -1515,7 +1522,7 @@ parseit(classdefine)
     struct symhash *si;
     DPRINTSYM(si);
     current = current->parent;
-    current->current_class_offset += new_class->vtable_size;
+    root.current_class_offset += new_class->vtable_size;
     current_class = NULL;
 }
 
