@@ -5,10 +5,13 @@
 
 static uint32_t tcode[50];
 
+extern uint32_t current_text_offset;
 static uint32_t s = 16;
 static uint32_t t = 8;
 extern struct stringlist *stringlist;
 extern struct symres root;
+extern Elf32_Rel textrealloc[2048];
+extern uint32_t current_text_reallocs=0;
 
 void reset_ir_gen()
 {
@@ -47,6 +50,7 @@ uint32_t gen_imm(const char *imm, struct ir *ir)
     uint32_t op = OP_LUI | (treg << TO_RT) | (i&IMM);
     tcode[ir->number++] = op;
     DBGPRINT("lui %u, #%d\n", treg, (int32_t)i);
+    current_text_offset += PSIZE;
     return treg;
     
 }
@@ -61,6 +65,7 @@ void gen_lw(uint32_t base, uint32_t rt, uint32_t offset, struct ir *ir)
     uint32_t op = OP_LW | (base << TO_RS) | (rt << TO_RT) | (offset&IMM);
     tcode[ir->number++] = op;
     DBGPRINT("lw %d(%u), %u\n", offset, base, rt);
+    current_text_offset += PSIZE;
 }
 
 uint32_t gen_not(uint32_t ops, struct ir *ir)
@@ -69,15 +74,60 @@ uint32_t gen_not(uint32_t ops, struct ir *ir)
     uint32_t op = OP_SLTIU | (ops << TO_RS) | (treg << TO_RT) | 1;
     tcode[ir->number++] = op;
     DBGPRINT("sltiu %u, %u, 1\n", ops, treg);
+    current_text_offset += PSIZE;
     return treg;
 }
 
-uint32_t gen_realloc_addr(const char *name, struct ir *ir)
+void gen_addiu(uint32_t rs, uint32_t rt, uint32_t imm, struct ir *ir)
+{
+    uint32_t op = OP_ADDIU | (rs << TO_RS) | (rt << TO_RT) | (imm&IMM);
+    tcode[ir->number++] = op;
+    DBGPRINT("addiu %u, %u, #%d\n", rs, rt, (int32_t)imm);
+    current_text_offset += PSIZE;
+}
+
+uint32_t gen_realloc_sym(uint32_t sym, struct ir *ir)
 {
     uint32_t treg = get_tmp_reg();
     uint32_t op = OP_LUI | treg << TO_RT | 0;
+
+    textrealloc[current_text_reallocs].r_offset = current_text_offset;
+    textrealloc[current_text_reallocs].r_info = (sym << 8) | R_MIPS_HI16;
+    current_text_offset += PSIZE;
     tcode[ir->number++] = op;
     DBGPRINT("lui %u, %u\n", treg, 0);
+    
+    op = OP_ADDIU | treg << TO_RS | treg << TO_RT | 0;
+    textrealloc[current_text_reallocs].r_offset = current_text_offset;
+    textrealloc[current_text_reallocs].r_info = (sym << 8) | R_MIPS_LO16;
+    current_text_offset += PSIZE;
+    tcode[ir->number++] = op;
+    DBGPRINT("addiu %u, %u, 0\n", treg, treg);
+    
+    return treg;
+}
+
+uint32_t gen_realloc_class(struct class_detail *detail, struct ir *ir)
+{
+    uint32_t treg = gen_realloc_sym(SYM_VTABLE, ir);
+    gen_addiu(treg, treg, detail->offset, ir);
+    return treg;
+}
+
+uint32_t gen_realloc_string(const char *offset, struct ir *ir)
+{
+    uint32_t treg = gen_realloc_sym(SYM_SLIST, ir);
+    uint32_t off = atoi(offset);
+    gen_addiu(treg, treg, off, ir);
+    return treg;
+}
+
+uint32_t gen_realloc_bss(const char *var, struct ir *ir)
+{
+     
+    struct symhash *r = sym_get(&root, var);
+    struct var_detail *detail = r->detail;
+    uint32_t treg = gen_realloc_sym(detail->symnum, ir);
     return treg;
 }
 
@@ -86,6 +136,7 @@ void gen_sw(uint32_t base, uint32_t offset, uint32_t rt, struct ir *ir)
     uint32_t op = OP_SW | (base << TO_RS) | (rt << TO_RT) | (offset&IMM);
     tcode[ir->number++] = op;
     DBGPRINT("sw %u(%u), %u\n", offset, base, rt);
+    current_text_offset += PSIZE;
 }
 
 void gen_addu(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -93,6 +144,7 @@ void gen_addu(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_ADDU | rs << TO_RS | rt << TO_RT | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("addu %u, %u, %u\n", rs, rt, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_subu(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -100,6 +152,7 @@ void gen_subu(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_SUBU | rs << TO_RS | rt << TO_RT | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("subu %u, %u, %u\n", rs, rt, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_mul(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -107,6 +160,7 @@ void gen_mul(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_MUL | rs << TO_RS | rt << TO_RT | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("mul %u, %u, %u\n", rs, rt, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_div(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -114,9 +168,11 @@ void gen_div(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_DIV | rs << TO_RS | rt << TO_RT;
     tcode[ir->number++] = op;
     DBGPRINT("div %u, %u\n", rs, rt);
+    current_text_offset += PSIZE;
     op = OP_MFLO | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("mflo %u\n", rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_div2(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -124,9 +180,11 @@ void gen_div2(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_DIV | rs << TO_RS | rt << TO_RT;
     tcode[ir->number++] = op;
     DBGPRINT("div %u, %u\n", rs, rt);
+    current_text_offset += PSIZE;
     op = OP_MFHI | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("mfhi %u\n", rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_slt(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -134,6 +192,7 @@ void gen_slt(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_SLT | rs << TO_RS | rt << TO_RT | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("slt %u, %u, %u\n", rs, rt, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_equ(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -142,6 +201,7 @@ void gen_equ(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_SLTIU | rd << TO_RS | rd << TO_RT | 1;
     tcode[ir->number++] = op;
     DBGPRINT("sltiu %u, %u, #1\n", rd, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_le(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -150,6 +210,7 @@ void gen_le(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_SLTI | rd << TO_RS | rd << TO_RT | 1;
     tcode[ir->number++] = op;
     DBGPRINT("slti %u, %u, 1\n", rd, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_ge(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -158,6 +219,7 @@ void gen_ge(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_SLTI | rd << TO_RS | rd << TO_RT | 1;
     tcode[ir->number++] = op;
     DBGPRINT("slti %u, %u, 1\n", rd, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_and(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -165,6 +227,7 @@ void gen_and(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_AND | rs << TO_RS | rt << TO_RT | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("and %u, %u, %u\n", rs, rt, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_or(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
@@ -172,19 +235,14 @@ void gen_or(uint32_t rs, uint32_t rt, uint32_t rd, struct ir *ir)
     uint32_t op = OP_OR | rs << TO_RS | rt << TO_RT | rd << TO_RD;
     tcode[ir->number++] = op;
     DBGPRINT("or %u, %u, %u\n", rs, rt, rd);
+    current_text_offset += PSIZE;
 }
 
 void gen_nop(struct ir *ir)
 {
     tcode[ir->number++] = 0;
     DBGPRINT("nop\n");
-}
-
-void gen_addiu(uint32_t rs, uint32_t rt, uint32_t imm, struct ir *ir)
-{
-    uint32_t op = OP_ADDIU | (rs << TO_RS) | (rt << TO_RT) | (imm&IMM);
-    tcode[ir->number++] = op;
-    DBGPRINT("addiu %u, %u, #%d\n", rs, rt, (int32_t)imm);
+    current_text_offset += PSIZE;
 }
 
 uint32_t get_tmp_arg(uint32_t offset, struct ir *ir)
@@ -245,7 +303,7 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
         }
         else if (var[1] == 's')
         {
-            return gen_imm(var+2, ir);
+            return gen_imm(var+2, ir); //////////TO
         }
         else
         {
@@ -279,7 +337,7 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
         }
         case SCOPE_GLOBAL:
         {
-            uint32_t base = gen_realloc_addr(var, ir);
+            uint32_t base = gen_realloc_bss(var, ir);
             uint32_t treg = get_tmp_reg();
             gen_lw(base, treg, 0, ir);
             return treg;
@@ -351,7 +409,7 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
             }
             case SCOPE_GLOBAL:
             {
-                uint32_t base = gen_realloc_addr(l, ir);
+                uint32_t base = gen_realloc_bss(l, ir);
                 gen_sw(base, 0, r, ir);
                 return;
             }
@@ -376,6 +434,7 @@ void gen_call_mem(uint32_t i, struct ir ir[], struct func_detail *func)
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
+    current_text_offset += PSIZE;
     gen_nop(ir+i);
     return;
 }
@@ -388,10 +447,14 @@ void gen_call(uint32_t i, struct ir ir[])
     ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%s", func_name);
-    l = gen_realloc_addr(func_name, ir+i);
-    op = OP_JALR | l << TO_RS | REG_RA << TO_RD;
+    symhash *r = sym_get(&root, func_name);
+    func_detail *detail = r->detail;
+    op = OP_JAL;
     tcode[ir[i].number++] = op;
-    DBGPRINT("jalr %u\n", l);
+    textrealloc[current_text_reallocs].r_offset = current_text_offset;
+    textrealloc[current_text_reallocs].r_info = (detail->symnum << 8) | R_MIPS_26;
+    current_text_offset += PSIZE;
+    DBGPRINT("jal 0\n");
     gen_nop(ir+i);
     return;
 }
@@ -407,7 +470,7 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     sscanf(ir[i].code, "%d%s", &type, l);
     reg = get_var(l, ir+i, func);
     gen_addu(reg, REG_ZERO, REG_A+1, ir+i);
-    uint32_t strtab = gen_realloc_addr(".strs", ir+i);
+    uint32_t strtab = gen_realloc_sym(SYM_SLIST, ir+i);
     switch(type)
     {
     case D_INT:
@@ -421,10 +484,11 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
         gen_addiu(strtab, REG_A+0, stringlist->next->next->next->i, ir+i);
         break;
     }
-    rl = gen_realloc_addr("printf", ir+i);
+    rl = gen_realloc_sym(SYM_PRINTF, ir+i);
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
+    current_text_offset += PSIZE;
     gen_nop(ir+i);
 }
 
@@ -440,10 +504,11 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     rr = get_var(r, ir+i, func);
     
     gen_addu(rr, REG_ZERO, REG_A+0, ir+i);
-    rl = gen_realloc_addr("malloc", ir+i);
+    rl = gen_realloc_sym(SYM_MALLOC, ir+i);
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
+    current_text_offset += PSIZE;
     gen_nop(ir+i);
     
     save_var(l, REG_A+0, ir+i, func);
@@ -453,7 +518,7 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
         sscanf(ir[i].code, "%s%d%s%s", l, &type, r, class);
         struct symhash *r = sym_get(&root, class);
         struct class_detail *detail = r->detail;
-        uint32_t classtab = gen_realloc_addr(".class", ir+i);
+        uint32_t classtab = gen_realloc_class(detail, ir+i);
         uint32_t offsetreg = get_reg(NULL, NULL);
         uint32_t startreg = get_reg(NULL, NULL);
         uint32_t endreg = get_reg(NULL, NULL);
@@ -462,10 +527,11 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
         gen_addu(REG_A+0, rr, endreg, ir+i);
         
         gen_addiu(REG_ZERO, detail->size, REG_A+0, ir+i);
-        rl = gen_realloc_addr("malloc", ir+i);
+        rl = gen_realloc_sym(SYM_MALLOC, ir+i);
         op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
         tcode[ir[i].number++] = op;
         DBGPRINT("jalr %u\n", rl);
+        current_text_offset += PSIZE;
         gen_nop(ir+i);
         gen_sw(REG_A+0, 0, offsetreg, ir+i);
         gen_sw(startreg, 0, REG_A+0, ir+i);
@@ -473,6 +539,7 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
         op = OP_BNE | startreg << TO_RS | endreg << TO_RT | ((-6)&IMM);
         tcode[ir[i].number++] = op;
         DBGPRINT("bne %u, %u, -6\n", startreg, endreg);
+        current_text_offset += PSIZE;
     }
 }
 
@@ -484,6 +551,7 @@ void gen_ret(uint32_t i, struct ir ir[])
     op = OP_JR | REG_RA << TO_RS;  
     tcode[ir[i].number++] = op;
     DBGPRINT("jr %u\n", REG_RA);
+    current_text_offset += PSIZE;
     gen_nop(ir+i);
     return;
 }
@@ -563,6 +631,7 @@ void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
         }
         tcode[ir[i].number++] = op;
         DBGPRINT("bne %u,0,#%d\n", r, offset);
+        current_text_offset += PSIZE;
         gen_nop(ir+i);
     }
 }
@@ -614,6 +683,7 @@ void gen_j(uint32_t i, struct ir ir[], struct func_detail *func)
         }
         tcode[ir[i].number++] = op;
         DBGPRINT("b #%d\n", offset);
+        current_text_offset += PSIZE;
         gen_nop(ir+i);
     }
 }

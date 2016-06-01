@@ -4,12 +4,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linux/elf.h>
 
 struct symhash *roothash=NULL;
 struct symres root={SCOPE_GLOBAL, 0, 0, 0, &roothash, NULL};
 struct stringlist slist = {0, NULL, 0, NULL}, *stringlist = &slist;
+
+Elf32_Ehdr elfheader;
+Elf32_Shdr segheader[9];
+uint8_t text[10240];
+uint8_t data[2048];     //use data seg for vtable, bss seg for globals
+Elf32_Rel textrealloc[2048];
+Elf32_Rel datarealloc[2048];
+Elf32_Sym symtab[2048];
+char shstrtab[10240];
+char strtab[10240];
+
+uint32_t current_text_reallocs=0;
+uint32_t current_data_reallocs=0;
+uint32_t current_syms=1;
+uint32_t current_string_offset=0;
+uint32_t current_shstring_offset=0;
+uint32_t current_text_offset=0;
+
 static struct symres *current=&root;
 static struct class_detail *current_class = NULL;
+static const char *current_class_name = NULL;
 static struct func_detail *current_func = NULL;
 static char tir[50];
 static struct ir tirs[2048];
@@ -77,6 +97,47 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
 #else
 #define DPRINTIR(x)
 #endif
+
+static void fill_seg(int i, const char *name, uint32_t type, uint32_t flags, uint32_t offset, uint32_t size, uint32_t link, uint32_t info, uint32_t al)
+{
+    strcpy(shstrtab+current_shstring_offset, name);
+    segheader[i].sh_name = current_shstring_offset;
+    current_shstring_offset += strlen(shstrtab+current_shstring_offset)+1;
+    segheader[i].sh_type = type;
+    segheader[i].sh_flags = flags;
+    segheader[i].sh_addr = 0;
+    segheader[i].sh_offset = offset;
+    segheader[i].sh_size = size;
+    segheader[i].sh_link = link;
+    segheader[i].sh_info = info;
+    segheader[i].sh_addralign = al;
+    segheader[i].sh_entsize = 0;
+}
+
+static void fill_sym(const char *name, uint32_t value, uint32_t size, uint8_t info, uint8_t other, uint16_t sh)
+{
+    strcpy(strtab+current_string_offset, name);
+    symtab[current_syms].st_name = current_string_offset;
+    current_string_offset += strlen(name)+1;
+    symtab[current_syms].st_value = value;
+    symtab[current_syms].st_size = size;
+    symtab[current_syms].st_info = info;
+    symtab[current_syms].st_other = other;
+    symtab[current_syms].st_shndx = sh;
+    ++current_syms;
+}
+
+static void init_symtab()
+{
+    fill_sym("default.decaf", 0, 0, STB_LOCAL<<4|STT_FILE, 0, SHN_ABS);
+    fill_sym(0, 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 1);
+    fill_sym(0, 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 3);
+    fill_sym(0, 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 5);
+    fill_sym("printf", 0, 0, STB_GLOBAL<<4|STT_NOTYPE, 0, SHN_UNDEF);
+    fill_sym("malloc", 0, 0, STB_GLOBAL<<4|STT_NOTYPE, 0, SHN_UNDEF);
+    fill_sym(".vtable", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 3);
+    fill_sym(".slist", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 3);
+}
 
 void init_string()
 {
@@ -412,6 +473,13 @@ parseit(var)
     new_var->size = PSIZE; ///hehe
     new_var->scope = current->scope;
     sym_add(current, s->var->id->text, s->var->type->vtype->btype, new_var);
+    if (current->scope == SCOPE_GLOBAL)
+    {
+        strcpy(strtab+current_string_offset, s->var->id->text);
+        fill_sym(s->var->id->text, current->current_var_offset, PSIZE, (STB_GLOBAL << 4) | STT_OBJECT, 0, 5);
+        new_var->symnum = current_syms-1;
+        ++current_syms;
+    }
     current->current_var_offset += new_var->size + (new_var->size % ROUNDSIZE);
 }
 
@@ -1331,6 +1399,7 @@ parseit(funcdefine)
         new_func->formalsize = 0;
     }
     new_func->formals = current;
+    new_func->size = 0;
     new_func->stacksize = 0;
     new_func->uvarsize = 0;
     new_func->tvarsize = 0;
@@ -1379,16 +1448,32 @@ parseit(funcdefine)
     for (ri=0; ri<current_func->ircount; ++ri)
     {
         gen_code(ri, current_func->irlist, current_func);
+        memcpy(text+root.current_func_offset+current_func->size, current_func->irlist[ri].bcode, current_func->irlist[i].number*PSIZE);
+        current_func->size += current_func->irlist[i].number*PSIZE;
     }
     
     if (current->scope != SCOPE_CLASS)
     {
         new_func->offset = root.current_func_offset;
+        strcpy(strtab+current_string_offset, s->funcdefine->id->text);
     }
     else
     {
         current_class->vtable[new_func->offset/PSIZE] = root.current_func_offset;
+        sprintf(strtab+current_string_offset, "%s.%s", current_class_name, s->funcdefine->id->text);
+        datarealloc[current_data_reallocs].r_offset = current_class->offset+new_func->offset;
+        datarealloc[current_data_reallocs].r_info = (current_syms << 8) | R_MIPS_JALR;
+        ++current_data_reallocs;
     }
+    symtab[current_syms].st_name = current_string_offset;
+    symtab[current_syms].st_value = root.current_func_offset;
+    symtab[current_syms].size = current_func->size;
+    symtab[current_syms].info = (STB_GLOBAL << 4) | STT_FUNC;
+    symtab[current_syms].other = 0;
+    symtab[current_syms].shndx = 1;
+    new_func->symnum = current_syms;
+    ++current_syms;
+    current_string_offset += strlen(strtab+current_string_offset)+1;
     root.current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
 }
 
@@ -1492,6 +1577,7 @@ parseit(classdefine)
     parse_ident(indent+2, s->classdefine->id, 0);
     struct class_detail *new_class=malloc(sizeof(struct class_detail));
     current_class = new_class;
+    current_class_name = s->classdefine->id->text;
     sym_add(current, s->classdefine->id->text, D_TYPE, new_class);
     if (s->classdefine->extend && s->classdefine->extend->extend && s->classdefine->extend->extend->id)
     {
@@ -1521,6 +1607,7 @@ parseit(classdefine)
     parse_fields(indent+2, s->classdefine->fields, 0);
     struct symhash *si;
     DPRINTSYM(si);
+    
     current = current->parent;
     root.current_class_offset += new_class->vtable_size;
     current_class = NULL;
@@ -1598,4 +1685,47 @@ parseit(program)
     }
     struct symhash *si;
     DPRINTSYM(si);
+    elfheader.e_indent[0] = ELFMAG0;
+    
+    elfheader.e_indent[1] = ELFMAG1;
+    elfheader.e_indent[2] = ELFMAG2;
+    elfheader.e_indent[3] = ELFMAG3;
+    elfheader.e_indent[4] = 1;
+    elfheader.e_indent[5] = 2;
+    elfheader.e_indent[6] = 1;
+    elfheader.e_type = ET_REL;
+    elfheader.e_machine = EM_MIPS;
+    elfheader.e_version = 1;
+    elfheader.e_entry = 0;
+    elfheader.e_poff = 0;
+    elfheader.e_flags = 0x1005;
+    elfheader.e_ehsize = 52;
+    elfheader.e_phentsize = 0;
+    elfheader.e_phnum = 0;
+    elfheader.e_shentsize = 40;
+    elfheader.e_shnum = 9;
+    elfheader.e_shstrndx = 6;
+    
+    init_symtab();
+    
+    uint32_t seg_offset=52;
+    fill_seg(1, ".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR, seg_offset, current_text_offset, 0, 0, 16);
+    seg_offset += current_text_offset;
+    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, seg_offset, root.current_class_offset, 0, 0, 16);
+    seg_offset += root.current_class_offset;
+    fill_seg(5, ".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE, seg_offset, root.current_var_offset, 0, 0, 16);
+    fill_seg(6, ".shstrtab", SHT_STRTAB, 0, seg_offset, current_shstring_offset, 0, 0, 1);
+    seg_offset += current_shstring_offset;
+    fill_seg(7, ".symtab", SHT_SYMTAB, 0, seg_offset, current_syms*sizeof(Elf32_Sym), 8, 0, 4);
+    seg_offset += current_syms*sizeof(Elf32_Sym);
+    fill_seg(8, ".strtab", SHT_STRTAB, 0, seg_offset, current_string_offset, 0, 0, 1);
+    seg_offset += current_string_offset;
+    fill_seg(2, ".text.rel", SHT_RELA, 0, seg_offset, current_text_reallocs*sizeof(Elf32_Rel), 7, 1, 4);
+    seg_offset += current_text_reallocs*sizeof(Elf32_Rel);
+    fill_seg(2, ".data.rel", SHT_RELA, 0, seg_offset, current_data_reallocs*sizeof(Elf32_Rel), 7, 3, 4);
+    seg_offset += current_text_reallocs*sizeof(Elf32_Rel);
+    
+    elfheader.e_shoff = seg_offset;
+    symtab[7].size = root.current_class_offset;
+    symtab[8].value = root.current_class_offset;
 }

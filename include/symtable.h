@@ -19,6 +19,11 @@
 #define WPRINT(fmt, ...)  {fprintf(stderr, "WARNING: "); fprintf(stderr, fmt, ##__VA_ARGS__);}
 #define ERRPRINT(fmt, ...)  {fprintf(stderr, "ERROR: "); fprintf(stderr, fmt, ##__VA_ARGS__);}
 
+#define SYM_VTABLE  7
+#define SYM_PRINTF  5
+#define STM_MALLOC  6
+#define SYM_SLIST   8
+
 struct symhash
 {
     const char *name;
@@ -59,6 +64,7 @@ struct func_detail
     struct symres *formals;
     uint32_t ircount;
     struct ir *irlist;
+    uint32_t symnum;
     uint32_t offset;
 };
 
@@ -99,6 +105,7 @@ struct var_detail
     uint32_t size;
     enum decaf_type type;
     struct class_detail *class;
+    uint32_t symnum;
     uint32_t offset;
 };
 
