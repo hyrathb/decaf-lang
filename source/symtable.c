@@ -1864,6 +1864,10 @@ parseit(program)
     DBGPRINT("DATA REL: 0x%x\n", seg_offset);
     seg_offset += current_data_reallocs*sizeof(Elf32_Rel);
     
+    symtab[7].st_size = root.current_class_offset;
+    symtab[8].st_value = root.current_class_offset;
+    symtab[8].st_size = stringlist->i;
+    
     elfheader.e_shoff = seg_offset;
     
     DBGPRINT("TEXT LENGTH: %u\n", current_text_offset);

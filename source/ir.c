@@ -30,7 +30,7 @@ uint32_t get_reg(const char *id, struct symres *env)
 
 uint32_t get_tmp_reg()
 {
-    return t++;
+    return s++;
 }
 
 uint32_t in_reg(const char *id, struct symres *env)
@@ -41,18 +41,6 @@ uint32_t in_reg(const char *id, struct symres *env)
 uint32_t gen_readstring(struct ir *ir)
 {
     return REG_A+0;
-}
-
-uint32_t gen_imm(const char *imm, struct ir *ir)
-{
-    uint32_t i = atoi(imm);
-    uint32_t treg = get_tmp_reg();
-    uint32_t op = OP_LUI | (treg << TO_RT) | (i&IMM);
-    tcode[ir->number++] = op;
-    DBGPRINT("lui %u, #%d\n", treg, (int32_t)i);
-    current_text_offset += PSIZE;
-    return treg;
-    
 }
 
 uint32_t gen_readint(struct ir *ir)
@@ -305,11 +293,17 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
         }
         else if (var[1] == 's')
         {
-            return gen_imm(var+2, ir); //////////TO
+            uint32_t strtab = gen_realloc_sym(SYM_SLIST, ir);
+            uint32_t offset = atoi(var+2);
+            gen_addiu(strtab, strtab, offset, ir);
+            return strtab;
         }
         else
         {
-            return gen_imm(var+1, ir);
+            uint32_t treg = get_tmp_reg();
+            uint32_t imm = atoi(var+1);
+            gen_addiu(REG_ZERO, treg, imm, ir);
+            return treg;
         }
     }
     case '*':
@@ -475,14 +469,13 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     switch(type)
     {
     case D_INT:
-        gen_addiu(strtab, REG_A+0, stringlist->next->i, ir+i);
-        break;
-    case D_DOUBLE:
         gen_addiu(strtab, REG_A+0, stringlist->next->next->i, ir+i);
         break;
-    case D_STRING:
-        gen_addu(strtab, REG_A+1, REG_A+1, ir+i);
+    case D_DOUBLE:
         gen_addiu(strtab, REG_A+0, stringlist->next->next->next->i, ir+i);
+        break;
+    case D_STRING:
+        gen_addiu(strtab, REG_A+0, stringlist->next->next->next->next->i, ir+i);
         break;
     }
     rl = gen_realloc_sym(SYM_PRINTF, ir+i);
