@@ -2,6 +2,7 @@
 #define __IR_H__
 
 #include <stdlib.h>
+#include <linux/elf.h>
 #include "symtable.h"
 
 #define REG_ZERO 0
@@ -32,6 +33,7 @@
 #define OP_SW       0xac000000
 #define OP_ADDU     0x00000021
 #define OP_JALR     0x00000009
+#define OP_JAL      0x0c00000
 #define OP_JR       0x00000008
 #define OP_SUBU     0x00000023
 #define OP_MUL      0x70000002

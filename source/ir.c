@@ -11,7 +11,7 @@ static uint32_t t = 8;
 extern struct stringlist *stringlist;
 extern struct symres root;
 extern Elf32_Rel textrealloc[2048];
-extern uint32_t current_text_reallocs=0;
+extern uint32_t current_text_reallocs;
 
 void reset_ir_gen()
 {
@@ -442,13 +442,12 @@ void gen_call_mem(uint32_t i, struct ir ir[], struct func_detail *func)
 void gen_call(uint32_t i, struct ir ir[])
 {
     char func_name[20];
-    uint32_t l;
     uint32_t op;
     ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%s", func_name);
-    symhash *r = sym_get(&root, func_name);
-    func_detail *detail = r->detail;
+    struct symhash *r = sym_get(&root, func_name);
+    struct func_detail *detail = r->detail;
     op = OP_JAL;
     tcode[ir[i].number++] = op;
     textrealloc[current_text_reallocs].r_offset = current_text_offset;

@@ -21,7 +21,7 @@
 
 #define SYM_VTABLE  7
 #define SYM_PRINTF  5
-#define STM_MALLOC  6
+#define SYM_MALLOC  6
 #define SYM_SLIST   8
 
 struct symhash

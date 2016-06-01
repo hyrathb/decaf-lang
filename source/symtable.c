@@ -98,7 +98,7 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
 #define DPRINTIR(x)
 #endif
 
-static void fill_seg(int i, const char *name, uint32_t type, uint32_t flags, uint32_t offset, uint32_t size, uint32_t link, uint32_t info, uint32_t al)
+static void fill_seg(int i, const char *name, uint32_t type, uint32_t flags, uint32_t size, uint32_t link, uint32_t info, uint32_t al, uint32_t entsize)
 {
     strcpy(shstrtab+current_shstring_offset, name);
     segheader[i].sh_name = current_shstring_offset;
@@ -106,12 +106,11 @@ static void fill_seg(int i, const char *name, uint32_t type, uint32_t flags, uin
     segheader[i].sh_type = type;
     segheader[i].sh_flags = flags;
     segheader[i].sh_addr = 0;
-    segheader[i].sh_offset = offset;
     segheader[i].sh_size = size;
     segheader[i].sh_link = link;
     segheader[i].sh_info = info;
     segheader[i].sh_addralign = al;
-    segheader[i].sh_entsize = 0;
+    segheader[i].sh_entsize = entsize;
 }
 
 static void fill_sym(const char *name, uint32_t value, uint32_t size, uint8_t info, uint8_t other, uint16_t sh)
@@ -130,13 +129,118 @@ static void fill_sym(const char *name, uint32_t value, uint32_t size, uint8_t in
 static void init_symtab()
 {
     fill_sym("default.decaf", 0, 0, STB_LOCAL<<4|STT_FILE, 0, SHN_ABS);
-    fill_sym(0, 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 1);
-    fill_sym(0, 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 3);
-    fill_sym(0, 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 5);
+    fill_sym("", 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 1);
+    fill_sym("", 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 3);
+    fill_sym("", 0, 0, STB_LOCAL<<4|STT_SECTION, 0, 5);
     fill_sym("printf", 0, 0, STB_GLOBAL<<4|STT_NOTYPE, 0, SHN_UNDEF);
     fill_sym("malloc", 0, 0, STB_GLOBAL<<4|STT_NOTYPE, 0, SHN_UNDEF);
     fill_sym(".vtable", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 3);
     fill_sym(".slist", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 3);
+}
+
+static void write_byte(void *x, FILE *out)
+{
+    fwrite(x, sizeof(uint8_t), 1, out);
+}
+
+static void write_half(void *x, FILE *out)
+{
+    fwrite((uint8_t *)x +1, sizeof(uint8_t), 1, out);
+    fwrite(x, sizeof(uint8_t), 1, out);
+}
+
+static void write_word(void *x, FILE *out)
+{
+    fwrite((uint8_t *)x +3, sizeof(uint8_t), 1, out);
+    fwrite((uint8_t *)x +2, sizeof(uint8_t), 1, out);
+    fwrite((uint8_t *)x +1, sizeof(uint8_t), 1, out);
+    fwrite(x, sizeof(uint8_t), 1, out);
+}
+
+static void outputheader(FILE *out)
+{
+    fwrite(elfheader.e_ident, sizeof(uint8_t), EI_NIDENT, out);
+    write_half(&elfheader.e_type, out);
+    write_half(&elfheader.e_machine, out);
+    write_word(&elfheader.e_version, out);
+    write_word(&elfheader.e_entry, out);
+    write_word(&elfheader.e_phoff, out);
+    write_word(&elfheader.e_shoff, out);
+    write_word(&elfheader.e_flags, out);
+    write_half(&elfheader.e_ehsize, out);
+    write_half(&elfheader.e_phentsize, out);
+    write_half(&elfheader.e_phnum, out);
+    write_half(&elfheader.e_shentsize, out);
+    write_half(&elfheader.e_shnum, out);
+    write_half(&elfheader.e_shstrndx, out);
+}
+
+static void outputtext(FILE *out)
+{
+    uint8_t *t = (void *)text;
+    uint32_t off;
+    for (off = 0; off<current_text_offset; off+=4)
+    {
+        write_word(t+off, out);
+    }
+}
+
+static void outputdata(FILE *out)
+{
+    uint8_t *t = (void *)data;
+    uint32_t off;
+    for (off = 0; off<root.current_class_offset; off+=4)
+    {
+        write_word(t+off, out);
+    }
+}
+
+static void outputsym(Elf32_Sym *sym, FILE *out)
+{
+    write_word(&sym->st_name, out);
+    write_word(&sym->st_value, out);
+    write_word(&sym->st_size, out);
+    write_byte(&sym->st_info, out);
+    write_byte(&sym->st_other, out);
+    write_half(&sym->st_shndx, out);
+}
+
+static void outputrel(Elf32_Rel *rel, FILE *out)
+{
+    write_word(&rel->r_offset, out);
+    write_word(&rel->r_info, out);
+}
+
+static void outputseg(Elf32_Shdr *seg, FILE *out)
+{
+    write_word(&seg->sh_name, out);
+    write_word(&seg->sh_type, out);
+    write_word(&seg->sh_flags, out);
+    write_word(&seg->sh_addr, out);
+    write_word(&seg->sh_offset, out);
+    write_word(&seg->sh_size, out);
+    write_word(&seg->sh_link, out);
+    write_word(&seg->sh_info, out);
+    write_word(&seg->sh_addralign, out);
+    write_word(&seg->sh_entsize, out);
+}
+
+static void outputelf(FILE *out)
+{
+    uint32_t i;
+    outputheader(out);
+    outputtext(out);
+    outputdata(out);
+    fwrite(shstrtab, sizeof(uint8_t), current_shstring_offset, out);
+    for (i=0; i<current_syms; ++i)
+        outputsym(symtab+i, out);
+    fwrite(strtab, sizeof(uint8_t), current_string_offset, out);
+    for (i=0; i<current_text_reallocs; ++i)
+        outputrel(textrealloc+i, out);
+    for (i=0; i<current_data_reallocs; ++i)
+        outputrel(datarealloc+i, out);
+    for (i=0; i<9; ++i)
+        outputseg(segheader+i, out);
 }
 
 void init_string()
@@ -144,6 +248,10 @@ void init_string()
     new_string("%s");
     new_string("%f");
     new_string("%x");
+    strtab[0] = 0;
+    ++current_string_offset;
+    shstrtab[0] = 0;
+    ++current_shstring_offset;
 }
 
 /*******NEED TO BE FREED*******/
@@ -1448,8 +1556,8 @@ parseit(funcdefine)
     for (ri=0; ri<current_func->ircount; ++ri)
     {
         gen_code(ri, current_func->irlist, current_func);
-        memcpy(text+root.current_func_offset+current_func->size, current_func->irlist[ri].bcode, current_func->irlist[i].number*PSIZE);
-        current_func->size += current_func->irlist[i].number*PSIZE;
+        memcpy(text+root.current_func_offset+current_func->size, current_func->irlist[ri].bcode, current_func->irlist[ri].number*PSIZE);
+        current_func->size += current_func->irlist[ri].number*PSIZE;
     }
     
     if (current->scope != SCOPE_CLASS)
@@ -1462,15 +1570,15 @@ parseit(funcdefine)
         current_class->vtable[new_func->offset/PSIZE] = root.current_func_offset;
         sprintf(strtab+current_string_offset, "%s.%s", current_class_name, s->funcdefine->id->text);
         datarealloc[current_data_reallocs].r_offset = current_class->offset+new_func->offset;
-        datarealloc[current_data_reallocs].r_info = (current_syms << 8) | R_MIPS_JALR;
+        datarealloc[current_data_reallocs].r_info = (current_syms << 8) | R_MIPS_32;
         ++current_data_reallocs;
     }
     symtab[current_syms].st_name = current_string_offset;
     symtab[current_syms].st_value = root.current_func_offset;
-    symtab[current_syms].size = current_func->size;
-    symtab[current_syms].info = (STB_GLOBAL << 4) | STT_FUNC;
-    symtab[current_syms].other = 0;
-    symtab[current_syms].shndx = 1;
+    symtab[current_syms].st_size = current_func->size;
+    symtab[current_syms].st_info = (STB_GLOBAL << 4) | STT_FUNC;
+    symtab[current_syms].st_other = 0;
+    symtab[current_syms].st_shndx = 1;
     new_func->symnum = current_syms;
     ++current_syms;
     current_string_offset += strlen(strtab+current_string_offset)+1;
@@ -1678,6 +1786,7 @@ parseit(program)
     ind;
     DBGPRINT("PROGRAM:\n");
     init_string();
+    init_symtab();
     struct program *i;
     for (i=s->program; i; i=i->next)
     {
@@ -1685,19 +1794,18 @@ parseit(program)
     }
     struct symhash *si;
     DPRINTSYM(si);
-    elfheader.e_indent[0] = ELFMAG0;
-    
-    elfheader.e_indent[1] = ELFMAG1;
-    elfheader.e_indent[2] = ELFMAG2;
-    elfheader.e_indent[3] = ELFMAG3;
-    elfheader.e_indent[4] = 1;
-    elfheader.e_indent[5] = 2;
-    elfheader.e_indent[6] = 1;
+    elfheader.e_ident[0] = ELFMAG0;
+    elfheader.e_ident[1] = ELFMAG1;
+    elfheader.e_ident[2] = ELFMAG2;
+    elfheader.e_ident[3] = ELFMAG3;
+    elfheader.e_ident[4] = 1;
+    elfheader.e_ident[5] = 2;
+    elfheader.e_ident[6] = 1;
     elfheader.e_type = ET_REL;
     elfheader.e_machine = EM_MIPS;
     elfheader.e_version = 1;
     elfheader.e_entry = 0;
-    elfheader.e_poff = 0;
+    elfheader.e_phoff = 0;
     elfheader.e_flags = 0x1005;
     elfheader.e_ehsize = 52;
     elfheader.e_phentsize = 0;
@@ -1706,26 +1814,57 @@ parseit(program)
     elfheader.e_shnum = 9;
     elfheader.e_shstrndx = 6;
     
-    init_symtab();
+    fill_seg(1, ".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR, current_text_offset, 0, 0, 16, 0);
+
+    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, root.current_class_offset, 0, 0, 16, 0);
+    fill_seg(5, ".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE, root.current_var_offset, 0, 0, 16, 0);
+    fill_seg(6, ".shstrtab", SHT_STRTAB, 0, current_shstring_offset, 0, 0, 1, 0);
+    fill_seg(7, ".symtab", SHT_SYMTAB, 0, current_syms*sizeof(Elf32_Sym), 8, 0, 4, sizeof(Elf32_Sym));
+    fill_seg(8, ".strtab", SHT_STRTAB, 0, current_string_offset, 0, 0, 1, 0);
+    fill_seg(2, ".text.rel", SHT_REL, 0, current_text_reallocs*sizeof(Elf32_Rel), 7, 1, 4, sizeof(Elf32_Rel));
+    fill_seg(4, ".data.rel", SHT_REL, 0, current_data_reallocs*sizeof(Elf32_Rel), 7, 3, 4, sizeof(Elf32_Rel));
     
     uint32_t seg_offset=52;
-    fill_seg(1, ".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR, seg_offset, current_text_offset, 0, 0, 16);
+    segheader[1].sh_offset = seg_offset;
+    DBGPRINT("TEXT: 0x%x\n", seg_offset);
     seg_offset += current_text_offset;
-    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, seg_offset, root.current_class_offset, 0, 0, 16);
+    
+    segheader[3].sh_offset = seg_offset;
+    DBGPRINT("DATA: 0x%x\n", seg_offset);
     seg_offset += root.current_class_offset;
-    fill_seg(5, ".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE, seg_offset, root.current_var_offset, 0, 0, 16);
-    fill_seg(6, ".shstrtab", SHT_STRTAB, 0, seg_offset, current_shstring_offset, 0, 0, 1);
+    
+    segheader[5].sh_offset = seg_offset;
+    DBGPRINT("BSS: 0x%x\n", seg_offset);
+    
+    segheader[6].sh_offset = seg_offset;
+    DBGPRINT("SHSTRTAB: 0x%x\n", seg_offset);
     seg_offset += current_shstring_offset;
-    fill_seg(7, ".symtab", SHT_SYMTAB, 0, seg_offset, current_syms*sizeof(Elf32_Sym), 8, 0, 4);
+    
+    segheader[7].sh_offset = seg_offset;
+    DBGPRINT("SYMTAB: 0x%x\n", seg_offset);
     seg_offset += current_syms*sizeof(Elf32_Sym);
-    fill_seg(8, ".strtab", SHT_STRTAB, 0, seg_offset, current_string_offset, 0, 0, 1);
+    
+    segheader[8].sh_offset = seg_offset;
+    DBGPRINT("STRTAB: 0x%x\n", seg_offset);
     seg_offset += current_string_offset;
-    fill_seg(2, ".text.rel", SHT_RELA, 0, seg_offset, current_text_reallocs*sizeof(Elf32_Rel), 7, 1, 4);
-    seg_offset += current_text_reallocs*sizeof(Elf32_Rel);
-    fill_seg(2, ".data.rel", SHT_RELA, 0, seg_offset, current_data_reallocs*sizeof(Elf32_Rel), 7, 3, 4);
+    
+    segheader[2].sh_offset = seg_offset;
+    DBGPRINT("TEXT REL: 0x%x\n", seg_offset);
     seg_offset += current_text_reallocs*sizeof(Elf32_Rel);
     
+    segheader[4].sh_offset = seg_offset;
+    DBGPRINT("DATA REL: 0x%x\n", seg_offset);
+    seg_offset += current_data_reallocs*sizeof(Elf32_Rel);
+    
     elfheader.e_shoff = seg_offset;
-    symtab[7].size = root.current_class_offset;
-    symtab[8].value = root.current_class_offset;
+    symtab[7].st_size = root.current_class_offset;
+    symtab[8].st_value = root.current_class_offset;
+    
+    DBGPRINT("TEXT LENGTH: %u\n", current_text_offset);
+    DBGPRINT("DATA LENGTH: %u\n", root.current_class_offset);
+    DBGPRINT("TEXT REL NUMBER: %u\n", current_text_reallocs);
+    DBGPRINT("DATA REL NUMBER: %u\n", current_data_reallocs);
+    FILE *out = fopen("a.o", "wb");
+    outputelf(out);
+    fclose(out);
 }

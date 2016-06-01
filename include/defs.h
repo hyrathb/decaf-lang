@@ -15,6 +15,11 @@
 #define STRINGSIZE PSIZE
 #define ROUNDSIZE PSIZE
 
+#define R_MIPS_32 3
+#define R_MIPS_26 4
+#define R_MIPS_HI16 5
+#define R_MIPS_LO16 6
+
 struct class_detail;
 
 enum decaf_type
