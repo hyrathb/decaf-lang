@@ -193,6 +193,7 @@ static void outputdata(FILE *out)
     {
         write_word(t+off, out);
     }
+    fwrite(((char *)data)+root.current_class_offset, sizeof(uint8_t), stringlist->i, out);
 }
 
 static void outputsym(Elf32_Sym *sym, FILE *out)
@@ -1815,8 +1816,14 @@ parseit(program)
     elfheader.e_shstrndx = 6;
     
     fill_seg(1, ".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR, current_text_offset, 0, 0, 16, 0);
-
-    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, root.current_class_offset, 0, 0, 16, 0);
+    
+    struct stringlist *str;
+    for (str = stringlist->next; str; str=str->next)
+    {
+        strcpy(((char *)data)+root.current_class_offset+str->i, str->s);
+    }
+    
+    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, root.current_class_offset+stringlist->i, 0, 0, 16, 0);
     fill_seg(5, ".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE, root.current_var_offset, 0, 0, 16, 0);
     fill_seg(6, ".shstrtab", SHT_STRTAB, 0, current_shstring_offset, 0, 0, 1, 0);
     fill_seg(7, ".symtab", SHT_SYMTAB, 0, current_syms*sizeof(Elf32_Sym), 8, 0, 4, sizeof(Elf32_Sym));
@@ -1831,7 +1838,7 @@ parseit(program)
     
     segheader[3].sh_offset = seg_offset;
     DBGPRINT("DATA: 0x%x\n", seg_offset);
-    seg_offset += root.current_class_offset;
+    seg_offset += root.current_class_offset+stringlist->i;
     
     segheader[5].sh_offset = seg_offset;
     DBGPRINT("BSS: 0x%x\n", seg_offset);
@@ -1858,8 +1865,6 @@ parseit(program)
     seg_offset += current_data_reallocs*sizeof(Elf32_Rel);
     
     elfheader.e_shoff = seg_offset;
-    symtab[7].st_size = root.current_class_offset;
-    symtab[8].st_value = root.current_class_offset;
     
     DBGPRINT("TEXT LENGTH: %u\n", current_text_offset);
     DBGPRINT("DATA LENGTH: %u\n", root.current_class_offset);

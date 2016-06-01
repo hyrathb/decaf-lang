@@ -93,6 +93,7 @@ uint32_t gen_realloc_sym(uint32_t sym, struct ir *ir)
 
     textrealloc[current_text_reallocs].r_offset = current_text_offset;
     textrealloc[current_text_reallocs].r_info = (sym << 8) | R_MIPS_HI16;
+    ++current_text_reallocs;
     current_text_offset += PSIZE;
     tcode[ir->number++] = op;
     DBGPRINT("lui %u, %u\n", treg, 0);
@@ -100,6 +101,7 @@ uint32_t gen_realloc_sym(uint32_t sym, struct ir *ir)
     op = OP_ADDIU | treg << TO_RS | treg << TO_RT | 0;
     textrealloc[current_text_reallocs].r_offset = current_text_offset;
     textrealloc[current_text_reallocs].r_info = (sym << 8) | R_MIPS_LO16;
+    ++current_text_reallocs;
     current_text_offset += PSIZE;
     tcode[ir->number++] = op;
     DBGPRINT("addiu %u, %u, 0\n", treg, treg);
