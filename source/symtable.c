@@ -1541,7 +1541,6 @@ parseit(funcdefine)
         tirs[ri].number = 0;
     }
         
-    new_func->size = new_func->ircount * sizeof(struct ir); //tmp
     new_func->irlist = malloc(new_func->ircount * sizeof(struct ir));
     memcpy(new_func->irlist, tirs, new_func->ircount * sizeof(struct ir));
     current = current->parent;
@@ -1557,6 +1556,7 @@ parseit(funcdefine)
     {
         gen_code(ri, current_func->irlist, current_func);
         memcpy(text+root.current_func_offset+current_func->size, current_func->irlist[ri].bcode, current_func->irlist[ri].number*PSIZE);
+        DBGPRINT("COPYING TO %u FROM %u, SIZE %u\n", root.current_func_offset+current_func->size, ri, current_func->irlist[ri].number*PSIZE);
         current_func->size += current_func->irlist[ri].number*PSIZE;
     }
     
@@ -1837,6 +1837,7 @@ parseit(program)
     DBGPRINT("BSS: 0x%x\n", seg_offset);
     
     segheader[6].sh_offset = seg_offset;
+    segheader[6].sh_size = current_shstring_offset;
     DBGPRINT("SHSTRTAB: 0x%x\n", seg_offset);
     seg_offset += current_shstring_offset;
     

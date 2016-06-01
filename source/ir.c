@@ -601,7 +601,7 @@ void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
                 for (k=i+1; k<irnum; ++k)
                     offset += ir[k].number;
                 --offset;
-                ir[i].bcode[j] |= offset;
+                ir[i].bcode[j] |= offset&IMM;
                 break;
             }
         }
@@ -622,7 +622,7 @@ void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)
             }
             offset = -offset;
             --offset;
-            op |= offset;
+            op |= offset&IMM;
         }
         else
         {
@@ -654,7 +654,7 @@ void gen_j(uint32_t i, struct ir ir[], struct func_detail *func)
                 for (k=i+1; k<irnum; ++k)
                     offset += ir[k].number;
                 --offset;
-                ir[i].bcode[j] |= offset;
+                ir[i].bcode[j] |= offset&IMM;
                 break;
             }
         }
@@ -674,7 +674,7 @@ void gen_j(uint32_t i, struct ir ir[], struct func_detail *func)
             }
             offset = -offset;
             --offset;
-            op |= offset;
+            op |= offset&IMM;
         }
         else
         {
@@ -715,43 +715,43 @@ void gen_double(uint32_t i, struct ir ir[], struct func_detail *func)
     switch(op[0])
     {
         case '+':
-            gen_addu(rr, rr2, rm, ir);
+            gen_addu(rr, rr2, rm, ir+i);
             break;
         case '-':
-            gen_subu(rr, rr2, rm, ir);
+            gen_subu(rr, rr2, rm, ir+i);
             break;
         case '*':
-            gen_mul(rr, rr2, rm, ir);
+            gen_mul(rr, rr2, rm, ir+i);
             break;
         case '/':
-            gen_div(rr, rr2, rm, ir);
+            gen_div(rr, rr2, rm, ir+i);
             break;
         case '%':
-            gen_div2(rr, rr2, rm, ir);
+            gen_div2(rr, rr2, rm, ir+i);
             break;
         case '<':
             if (op[1])
-                gen_le(rr, rr2, rm, ir);
+                gen_le(rr, rr2, rm, ir+i);
             else
-                gen_slt(rr, rr2, rm, ir);
+                gen_slt(rr, rr2, rm, ir+i);
             break;
         case '>':
             if (op[1])
-                gen_ge(rr, rr2, rm, ir);
+                gen_ge(rr, rr2, rm, ir+i);
             else
-                gen_slt(rr2, rr, rm, ir);
+                gen_slt(rr2, rr, rm, ir+i);
             break;
         case '=':
-            gen_equ(rr, rr2, rm, ir);
+            gen_equ(rr, rr2, rm, ir+i);
             break;
         case '!':
-            gen_subu(rr, rr2, rm, ir);
+            gen_subu(rr, rr2, rm, ir+i);
             break;
         case '&':
-            gen_and(rr, rr2, rm, ir);
+            gen_and(rr, rr2, rm, ir+i);
             break;
         case '|':
-            gen_or(rr, rr2, rm, ir);
+            gen_or(rr, rr2, rm, ir+i);
             break;
         default:
             ;

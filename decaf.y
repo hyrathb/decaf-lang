@@ -284,7 +284,7 @@ int main(int argc, char **argv)
     else
     {
         printf("Usage %s [FILE]\n", argv[0]);
-        yyin=fopen("inheritance.decaf","r");
+        yyin=fopen("testfor.decaf","r");
         #ifdef DEBUG
         yydebug=1;
         #endif
