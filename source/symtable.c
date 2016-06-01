@@ -8,7 +8,6 @@
 
 struct symhash *roothash=NULL;
 struct symres root={SCOPE_GLOBAL, 0, 0, 0, &roothash, NULL};
-struct stringlist slist = {0, NULL, 0, NULL}, *stringlist = &slist;
 
 Elf32_Ehdr elfheader;
 Elf32_Shdr segheader[9];
@@ -19,6 +18,8 @@ Elf32_Rel datarealloc[2048];
 Elf32_Sym symtab[2048];
 char shstrtab[10240];
 char strtab[10240];
+char prostrtab[10240];
+
 
 uint32_t current_text_reallocs=0;
 uint32_t current_data_reallocs=0;
@@ -34,6 +35,7 @@ static struct func_detail *current_func = NULL;
 static char tir[50];
 static struct ir tirs[2048];
 static uint32_t tmp_var_i=0;
+static uint32_t current_prostring_offset=0;
 
 void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
 
@@ -62,13 +64,8 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
                                 set_type(a, x); \
 }
 
-#define new_string(str) {         struct stringlist *new_string = malloc(sizeof(struct stringlist)); \
-                                new_string->s = str; \
-                                new_string->i = stringlist->i; \
-                                new_string->length = strlen(str); \
-                                stringlist->i += new_string->length+1; \
-                                new_string->next = stringlist->next; \
-                                stringlist->next = new_string;}
+#define new_string(str) {         strcpy(prostrtab+current_prostring_offset, str); \
+                                current_prostring_offset+=strlen(str)+1;}
 
 
 #ifdef SYMDEBUG
@@ -193,7 +190,7 @@ static void outputdata(FILE *out)
     {
         write_word(t+off, out);
     }
-    fwrite(((char *)data)+root.current_class_offset, sizeof(uint8_t), stringlist->i, out);
+    fwrite(prostrtab, sizeof(uint8_t), current_prostring_offset, out);
 }
 
 static void outputsym(Elf32_Sym *sym, FILE *out)
@@ -478,8 +475,8 @@ char *parse_const(int indent, struct semantics *s)
         break;        
     case C_SCONST:
         DBGPRINT("string const: %s\n", s->s_val);
+        sprintf(tir, "%s $s%u =", l, current_prostring_offset);
         new_string(s->s_val);
-        sprintf(tir, "%s $s%u =", l, stringlist->next->i);
         break;
     default:
         ;
@@ -830,26 +827,27 @@ char *parse_lvalue(int indent, struct semantics *s)
         r2 = parse_expr(indent+2, s->lvalue->expr);
         
         if (s->lvalue->lvalue->lvalue->t != D_ARRAY)
-            ERRPRINT("Not an array.\n");
+        {
+            ERRPRINT("%d is not an array.\n", s->lvalue->lvalue->lvalue->t);
+        }
         
         s->lvalue->t = s->lvalue->lvalue->lvalue->bt;
-        s->lvalue->bt = s->lvalue->bt;
+        s->lvalue->bt = s->lvalue->t;
         s->lvalue->class = s->lvalue->lvalue->lvalue->class;
         
         tl = get_tmp_var();
         sprintf(tir, "%s %s $%d *", tl, r2, PSIZE);
         new_ir(IR_DOUBLE);
         
-        tl = get_tmp_var();
-        sprintf(tir, "%s %s %s +", tl, r, r2);
+        sprintf(tir, "%s %s %s +", r2, r, tl);
         new_ir(IR_DOUBLE);
         mfree(r);
-        mfree(r2);
-        l = malloc(strlen(tl) + 2);
+        mfree(tl);
+        l = malloc(strlen(r2) + 2);
         l[0] = '*';
         l[1] = 0;
-        strcat(l, tl);
-        free(tl);
+        strcat(l, r2);
+        free(r2);
         return l;
     default:
         return NULL;
@@ -1816,14 +1814,7 @@ parseit(program)
     elfheader.e_shstrndx = 6;
     
     fill_seg(1, ".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR, current_text_offset, 0, 0, 16, 0);
-    
-    struct stringlist *str;
-    for (str = stringlist->next; str; str=str->next)
-    {
-        strcpy(((char *)data)+root.current_class_offset+str->i, str->s);
-    }
-    
-    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, root.current_class_offset+stringlist->i, 0, 0, 16, 0);
+    fill_seg(3, ".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE, root.current_class_offset+current_prostring_offset, 0, 0, 16, 0);
     fill_seg(5, ".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE, root.current_var_offset, 0, 0, 16, 0);
     fill_seg(6, ".shstrtab", SHT_STRTAB, 0, current_shstring_offset, 0, 0, 1, 0);
     fill_seg(7, ".symtab", SHT_SYMTAB, 0, current_syms*sizeof(Elf32_Sym), 8, 0, 4, sizeof(Elf32_Sym));
@@ -1838,7 +1829,7 @@ parseit(program)
     
     segheader[3].sh_offset = seg_offset;
     DBGPRINT("DATA: 0x%x\n", seg_offset);
-    seg_offset += root.current_class_offset+stringlist->i;
+    seg_offset += root.current_class_offset+current_prostring_offset;
     
     segheader[5].sh_offset = seg_offset;
     DBGPRINT("BSS: 0x%x\n", seg_offset);
@@ -1866,7 +1857,7 @@ parseit(program)
     
     symtab[7].st_size = root.current_class_offset;
     symtab[8].st_value = root.current_class_offset;
-    symtab[8].st_size = stringlist->i;
+    symtab[8].st_size = current_prostring_offset;
     
     elfheader.e_shoff = seg_offset;
     

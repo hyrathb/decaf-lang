@@ -469,13 +469,13 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     switch(type)
     {
     case D_INT:
-        gen_addiu(strtab, REG_A+0, stringlist->next->i, ir+i);
+        gen_addiu(strtab, REG_A+0, 8, ir+i);
         break;
     case D_DOUBLE:
-        gen_addiu(strtab, REG_A+0, stringlist->next->next->next->i, ir+i);
+        gen_addiu(strtab, REG_A+0, 4, ir+i);
         break;
     case D_STRING:
-        gen_addiu(strtab, REG_A+0, stringlist->next->next->next->next->i, ir+i);
+        gen_addiu(strtab, REG_A+0, 0, ir+i);
         break;
     }
     op = OP_JAL | 0;

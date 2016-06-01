@@ -6,7 +6,7 @@ CC := gcc
 LD := ld
 BIN := test
 TESTFILE := hehe.decaf
-CFLAGS := -m32 -O2 -Wall -c -Iinclude
+CFLAGS := -m32 -O0 -Wall -c -Iinclude
 ifdef DEBUG
 CFLAGS +=-g -DYYDEBUG -DDEBUG
 endif
