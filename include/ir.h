@@ -11,7 +11,7 @@
 #define REG_A 4
 #define REG_V 2
 #define REG_RA 31
-#define REG_STACK 23
+#define REG_STACK 30
 #define REG_SP 29
 
 #define RS      0x03e00000
@@ -24,7 +24,7 @@
 
 #define OP_SPECIAL  0x00000000
 #define OP_SPECIAL2 0x70000000
-#define OP_LW       0x98000000
+#define OP_LW       0x8c000000
 #define OP_ADDI     0x20000000
 #define OP_ADDIU    0x24000000
 #define OP_LUI      0x3c000000
@@ -33,7 +33,7 @@
 #define OP_SW       0xac000000
 #define OP_ADDU     0x00000021
 #define OP_JALR     0x00000009
-#define OP_JAL      0x0c00000
+#define OP_JAL      0x0c000000
 #define OP_JR       0x00000008
 #define OP_SUBU     0x00000023
 #define OP_MUL      0x70000002

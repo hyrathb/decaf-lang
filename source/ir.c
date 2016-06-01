@@ -469,7 +469,7 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     switch(type)
     {
     case D_INT:
-        gen_addiu(strtab, REG_A+0, stringlist->next->next->i, ir+i);
+        gen_addiu(strtab, REG_A+0, stringlist->next->i, ir+i);
         break;
     case D_DOUBLE:
         gen_addiu(strtab, REG_A+0, stringlist->next->next->next->i, ir+i);
@@ -478,11 +478,13 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
         gen_addiu(strtab, REG_A+0, stringlist->next->next->next->next->i, ir+i);
         break;
     }
-    rl = gen_realloc_sym(SYM_PRINTF, ir+i);
-    op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
+    op = OP_JAL | 0;
     tcode[ir[i].number++] = op;
-    DBGPRINT("jalr %u\n", rl);
+    textrealloc[current_text_reallocs].r_offset = current_text_offset;
+    textrealloc[current_text_reallocs].r_info = (SYM_PRINTF << 8) | R_MIPS_26;
+    DBGPRINT("jal 0\n");
     current_text_offset += PSIZE;
+    ++current_text_reallocs;
     gen_nop(ir+i);
 }
 
@@ -498,11 +500,13 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     rr = get_var(r, ir+i, func);
     
     gen_addu(rr, REG_ZERO, REG_A+0, ir+i);
-    rl = gen_realloc_sym(SYM_MALLOC, ir+i);
-    op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
+    op = OP_JAL | 0;
     tcode[ir[i].number++] = op;
-    DBGPRINT("jalr %u\n", rl);
+    textrealloc[current_text_reallocs].r_offset = current_text_offset;
+    textrealloc[current_text_reallocs].r_info = (SYM_MALLOC << 8) | R_MIPS_26;
+    DBGPRINT("jal 0\n");
     current_text_offset += PSIZE;
+    ++current_text_reallocs;
     gen_nop(ir+i);
     
     save_var(l, REG_A+0, ir+i, func);
@@ -521,11 +525,13 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
         gen_addu(REG_A+0, rr, endreg, ir+i);
         
         gen_addiu(REG_ZERO, detail->size, REG_A+0, ir+i);
-        rl = gen_realloc_sym(SYM_MALLOC, ir+i);
-        op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
+        op = OP_JAL | 0;
         tcode[ir[i].number++] = op;
-        DBGPRINT("jalr %u\n", rl);
+        textrealloc[current_text_reallocs].r_offset = current_text_offset;
+        textrealloc[current_text_reallocs].r_info = (SYM_MALLOC << 8) | R_MIPS_26;
+        DBGPRINT("jal 0\n");
         current_text_offset += PSIZE;
+        ++current_text_reallocs;
         gen_nop(ir+i);
         gen_sw(REG_A+0, 0, offsetreg, ir+i);
         gen_sw(startreg, 0, REG_A+0, ir+i);
@@ -555,7 +561,7 @@ void gen_save_regs(uint32_t i, struct ir ir[], struct func_detail *func)
     uint32_t formals;
     ir[i].addressed = 1;
     ir[i].generated = 1;
-    gen_addiu(REG_SP, REG_SP, -(func->stacksize+PSIZE), ir+i);
+    gen_addiu(REG_SP, REG_SP, -(func->stacksize+PSIZE+PSIZE), ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE+PSIZE, REG_RA, ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE, REG_STACK, ir+i);
     for (formals=0; formals<func->formalsize; formals+=PSIZE)
@@ -573,7 +579,7 @@ void gen_restore_regs(uint32_t i, struct ir ir[], struct func_detail *func)
     ir[i].generated = 1;
     gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
     gen_lw(REG_SP, REG_RA, func->stacksize+PSIZE+PSIZE, ir+i);
-    gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE, ir+i);
+    gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE+PSIZE, ir+i);
 }
 
 void gen_branch(uint32_t i, struct ir ir[], struct func_detail *func)

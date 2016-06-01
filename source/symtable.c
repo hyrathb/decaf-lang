@@ -246,9 +246,9 @@ static void outputelf(FILE *out)
 
 void init_string()
 {
-    new_string("%s");
-    new_string("%f");
-    new_string("%x");
+    new_string("%s\n");
+    new_string("%f\n");
+    new_string("%x\n");
     strtab[0] = 0;
     ++current_string_offset;
     shstrtab[0] = 0;
