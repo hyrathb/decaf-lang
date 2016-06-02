@@ -1131,11 +1131,8 @@ char *parse_expr(int indent, struct semantics *s)
         DBGPRINT("new expr:\n");
         struct symhash *sym;
         parse_ident(indent+2, s->expr->id, 1);
-        r = get_tmp_var();
-        sprintf(tir, "%s $%u =", r, PSIZE);
-        new_ir(IR_SINGLE);
         l = get_tmp_var();
-        sprintf(tir, "%s %d %s %s", l, D_TYPE, r, s->expr->id->text);
+        sprintf(tir, "%s %s", l, s->expr->id->text);
         new_ir(IR_NEW);
         
         sym = sym_get(current, s->expr->id->text);

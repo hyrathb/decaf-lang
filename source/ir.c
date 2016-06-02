@@ -543,6 +543,32 @@ void gen_new_array(uint32_t i, struct ir ir[], struct func_detail *func)
     }
 }
 
+void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
+{
+    int type;
+    uint32_t rl, rr;
+    uint32_t op;
+    char l[20], class[20];
+    ir[i].addressed = 1;
+    ir[i].generated = 1;
+    sscanf(ir[i].code, "%s%s", l, class);
+    
+    struct symhash *r = sym_get(&root, class);
+    struct class_detail *detail = r->detail;
+    uint32_t classtab = gen_realloc_class(detail, ir+i);
+    gen_addiu(REG_ZERO, REG_A+0, detail->size, ir+i);
+    op = OP_JAL | 0;
+    tcode[ir[i].number++] = op;
+    textrealloc[current_text_reallocs].r_offset = current_text_offset;
+    textrealloc[current_text_reallocs].r_info = (SYM_MALLOC << 8) | R_MIPS_26;
+    DBGPRINT("jal 0\n");
+    current_text_offset += PSIZE;
+    ++current_text_reallocs;
+    gen_nop(ir+i);
+    gen_sw(REG_V+0, 0, classtab, ir+i);
+    save_var(l, REG_V+0, ir+i, func);
+}
+
 void gen_ret(uint32_t i, struct ir ir[])
 {
     uint32_t op;
@@ -793,6 +819,9 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func)
             break;
         case IR_PRINT:
             gen_print(i, ir, func);
+            break;
+        case IR_NEW:
+            gen_new(i, ir, func);
             break;
         case IR_NEW_ARRAY:
             gen_new_array(i, ir, func);
