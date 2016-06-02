@@ -58,6 +58,7 @@ enum ir_type
     IR_RESTORE_REGS,
     IR_PRINT,
     IR_NEW,
+    IR_NEW_ARRAY,
     IR_B,
     IR_J
 };

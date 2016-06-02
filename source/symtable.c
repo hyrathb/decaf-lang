@@ -133,6 +133,7 @@ static void init_symtab()
     fill_sym("malloc", 0, 0, STB_GLOBAL<<4|STT_NOTYPE, 0, SHN_UNDEF);
     fill_sym(".vtable", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 3);
     fill_sym(".slist", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 3);
+    fill_sym(".textbegin", 0, 0, STB_GLOBAL<<4|STT_OBJECT, 0, 1);
 }
 
 static void write_byte(void *x, FILE *out)
@@ -733,7 +734,7 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
                 l = get_tmp_var();
                 sprintf(tir, "%s *%s =", l, r);
                 new_ir(IR_SINGLE);
-                sprintf(tir, "%s", r);
+                sprintf(tir, "%s", l);
                 new_ir(IR_CALL_MEMBER);
                 mfree(r);
                 mfree(l);
@@ -1192,7 +1193,7 @@ char *parse_expr(int indent, struct semantics *s)
             s->expr->bt = btype;
             s->expr->class = NULL;
         }
-        new_ir(IR_NEW);
+        new_ir(IR_NEW_ARRAY);
         return l;
     default:
         return NULL;
@@ -1568,9 +1569,6 @@ parseit(funcdefine)
     {
         current_class->vtable[new_func->offset/PSIZE] = root.current_func_offset;
         sprintf(strtab+current_string_offset, "%s.%s", current_class_name, s->funcdefine->id->text);
-        datarealloc[current_data_reallocs].r_offset = current_class->offset+new_func->offset;
-        datarealloc[current_data_reallocs].r_info = (current_syms << 8) | R_MIPS_32;
-        ++current_data_reallocs;
     }
     symtab[current_syms].st_name = current_string_offset;
     symtab[current_syms].st_value = root.current_func_offset;
@@ -1703,7 +1701,10 @@ parseit(classdefine)
     new_class->interfaces = get_implements(s->classdefine->implement);
     parse_implement(indent+2, s->classdefine->implement);
     new_field(SCOPE_CLASS);
-    new_class->vtable_size = 0;
+    if (new_class->base)
+        new_class->vtable_size = new_class->base->vtable_size;
+    else
+        new_class->vtable_size = 0;
     new_class->env = current;
     new_class->offset = root.current_class_offset;
     parse_fields(indent+2, s->classdefine->fields, 1);
@@ -1716,6 +1717,7 @@ parseit(classdefine)
     DPRINTSYM(si);
     
     current = current->parent;
+    memcpy(data+root.current_class_offset, current_class->vtable, current_class->vtable_size);
     root.current_class_offset += new_class->vtable_size;
     current_class = NULL;
 }

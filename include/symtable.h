@@ -23,6 +23,7 @@
 #define SYM_PRINTF  5
 #define SYM_MALLOC  6
 #define SYM_SLIST   8
+#define SYM_TEXT    9
 
 struct symhash
 {

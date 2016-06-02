@@ -421,12 +421,14 @@ void save_var(const char *l, uint32_t r, struct ir *ir, struct func_detail *func
 void gen_call_mem(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     char l[20];
-    uint32_t rl;
+    uint32_t rr, rl;
     uint32_t op;
     ir[i].addressed = 1;
     ir[i].generated = 1;
     sscanf(ir[i].code, "%s", l);
-    rl = get_var(l, ir+i, func);
+    rr = get_var(l, ir+i, func);
+    rl = gen_realloc_sym(SYM_TEXT, ir+i);
+    gen_addu(rr, rl, rl, ir+i);
     op = OP_JALR | rl << TO_RS | REG_RA << TO_RD;
     tcode[ir[i].number++] = op;
     DBGPRINT("jalr %u\n", rl);
@@ -488,7 +490,7 @@ void gen_print(uint32_t i, struct ir ir[], struct func_detail *func)
     gen_nop(ir+i);
 }
 
-void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
+void gen_new_array(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     int type;
     uint32_t rl, rr;
@@ -509,7 +511,7 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
     ++current_text_reallocs;
     gen_nop(ir+i);
     
-    save_var(l, REG_A+0, ir+i, func);
+    save_var(l, REG_V+0, ir+i, func);
     
     if (type == D_TYPE)
     {
@@ -517,14 +519,12 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
         struct symhash *r = sym_get(&root, class);
         struct class_detail *detail = r->detail;
         uint32_t classtab = gen_realloc_class(detail, ir+i);
-        uint32_t offsetreg = get_reg(NULL, NULL);
         uint32_t startreg = get_reg(NULL, NULL);
         uint32_t endreg = get_reg(NULL, NULL);
-        gen_addiu(classtab, offsetreg, detail->offset, ir+i);
-        gen_addu(REG_A+0, REG_ZERO, startreg, ir+i);
-        gen_addu(REG_A+0, rr, endreg, ir+i);
+        gen_addu(REG_V+0, REG_ZERO, startreg, ir+i);
+        gen_addu(REG_V+0, rr, endreg, ir+i);
         
-        gen_addiu(REG_ZERO, detail->size, REG_A+0, ir+i);
+        gen_addiu(REG_ZERO, REG_A+0, detail->size, ir+i);
         op = OP_JAL | 0;
         tcode[ir[i].number++] = op;
         textrealloc[current_text_reallocs].r_offset = current_text_offset;
@@ -533,8 +533,8 @@ void gen_new(uint32_t i, struct ir ir[], struct func_detail *func)
         current_text_offset += PSIZE;
         ++current_text_reallocs;
         gen_nop(ir+i);
-        gen_sw(REG_A+0, 0, offsetreg, ir+i);
-        gen_sw(startreg, 0, REG_A+0, ir+i);
+        gen_sw(REG_V+0, 0, classtab, ir+i);
+        gen_sw(startreg, 0, REG_V+0, ir+i);
         gen_addiu(startreg, startreg, PSIZE, ir+i);
         op = OP_BNE | startreg << TO_RS | endreg << TO_RT | ((-6)&IMM);
         tcode[ir[i].number++] = op;
@@ -794,8 +794,8 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func)
         case IR_PRINT:
             gen_print(i, ir, func);
             break;
-        case IR_NEW:
-            gen_new(i, ir, func);
+        case IR_NEW_ARRAY:
+            gen_new_array(i, ir, func);
             break;
         case IR_B:
             gen_branch(i, ir, func);
