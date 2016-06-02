@@ -451,6 +451,7 @@ void gen_call(uint32_t i, struct ir ir[])
     textrealloc[current_text_reallocs].r_offset = current_text_offset;
     textrealloc[current_text_reallocs].r_info = (detail->symnum << 8) | R_MIPS_26;
     current_text_offset += PSIZE;
+    ++current_text_reallocs;
     DBGPRINT("jal 0\n");
     gen_nop(ir+i);
     return;

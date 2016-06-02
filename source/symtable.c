@@ -250,7 +250,7 @@ void init_string()
 {
     new_string("\"%s\n\"");
     new_string("\"%f\n\"");
-    new_string("\"%x\n\"");
+    new_string("\"0x%x\n\"");
     strtab[0] = 0;
     ++current_string_offset;
     shstrtab[0] = 0;
@@ -753,8 +753,9 @@ char *parse_call(int indent, struct semantics *s, struct semantics *expr)
         else
             ERRPRINT("Not a function.\n");
     }
-    l = malloc(strlen("#ar")+1);
-    strcpy(l, "#ar");
+    l = get_tmp_var();
+    sprintf(tir, "%s #ar =", l);
+    new_ir(IR_SINGLE);
     return l;
     
 }
@@ -1482,6 +1483,7 @@ parseit(funcdefine)
         new_func->is_member = 0;
         sym_add(&root, s->funcdefine->id->text, D_FUNCTION, new_func);
     }
+    new_func->symnum = current_syms;
     current_func = new_func;
     new_func->ircount = 0;
     if (!s->funcdefine->is_void)
@@ -1577,7 +1579,6 @@ parseit(funcdefine)
     symtab[current_syms].st_info = (STB_GLOBAL << 4) | STT_FUNC;
     symtab[current_syms].st_other = 0;
     symtab[current_syms].st_shndx = 1;
-    new_func->symnum = current_syms;
     ++current_syms;
     current_string_offset += strlen(strtab+current_string_offset)+1;
     root.current_func_offset += new_func->size + new_func->size % ROUNDSIZE;
