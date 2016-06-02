@@ -589,7 +589,7 @@ void gen_save_regs(uint32_t i, struct ir ir[], struct func_detail *func)
     ir[i].generated = 1;
     gen_addiu(REG_SP, REG_SP, -(func->stacksize+PSIZE+PSIZE), ir+i);
     gen_sw(REG_SP, func->stacksize+PSIZE+PSIZE, REG_RA, ir+i);
-    gen_sw(REG_SP, func->stacksize+PSIZE, REG_STACK, ir+i);
+    //gen_sw(REG_SP, func->stacksize+PSIZE, REG_STACK, ir+i);
     for (formals=0; formals<func->formalsize; formals+=PSIZE)
     {
         if (formals >= 4*PSIZE)
@@ -603,8 +603,9 @@ void gen_restore_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     ir[i].addressed = 1;
     ir[i].generated = 1;
-    gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
+    gen_nop(ir+i);
     gen_lw(REG_SP, REG_RA, func->stacksize+PSIZE+PSIZE, ir+i);
+    //gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
     gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE+PSIZE, ir+i);
 }
 

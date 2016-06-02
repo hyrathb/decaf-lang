@@ -11,7 +11,7 @@
 #define REG_A 4
 #define REG_V 2
 #define REG_RA 31
-#define REG_STACK 30
+#define REG_STACK REG_SP
 #define REG_SP 29
 
 #define RS      0x03e00000
