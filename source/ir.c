@@ -266,7 +266,7 @@ uint32_t get_var(const char *var, struct ir *ir, struct func_detail *func)
             reg = in_reg(var, NULL);
             if (reg == -1)
             {
-                offset = func->tvarsize + func->uvarsize + func->formalsize;
+                offset = func->tvarsize + func->uvarsize + func->formalsize - PSIZE;
                 return get_tmp_arg(offset, ir);
             }
             return reg;

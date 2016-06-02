@@ -64,9 +64,6 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
                                 set_type(a, x); \
 }
 
-#define new_string(str) {         strcpy(prostrtab+current_prostring_offset, str); \
-                                current_prostring_offset+=strlen(str)+1;}
-
 
 #ifdef SYMDEBUG
 #define DPRINTSYM(x)  if (current->table)   \
@@ -94,6 +91,13 @@ void gen_code(uint32_t i, struct ir ir[], struct func_detail *func);
 #else
 #define DPRINTIR(x)
 #endif
+
+static void new_string(const char *s)
+{
+    strcpy(prostrtab+current_prostring_offset, s+1);
+    current_prostring_offset += strlen(s)-1;
+    prostrtab[current_prostring_offset-1] = 0;
+}
 
 static void fill_seg(int i, const char *name, uint32_t type, uint32_t flags, uint32_t size, uint32_t link, uint32_t info, uint32_t al, uint32_t entsize)
 {
@@ -244,9 +248,9 @@ static void outputelf(FILE *out)
 
 void init_string()
 {
-    new_string("%s\n");
-    new_string("%f\n");
-    new_string("%x\n");
+    new_string("\"%s\n\"");
+    new_string("\"%f\n\"");
+    new_string("\"%x\n\"");
     strtab[0] = 0;
     ++current_string_offset;
     shstrtab[0] = 0;

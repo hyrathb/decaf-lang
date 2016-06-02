@@ -1,6 +1,7 @@
 class Animal
 {
     string name;
+    int eattime;
     
     int init()
     {
@@ -9,7 +10,10 @@ class Animal
     
     int eat()
     {
-        Print("I am Eating");
+        Print("I have eat for");
+        eattime = eattime+1;
+        Print(eattime);
+        Print("times");
         return 0;
     }
     int p()
@@ -23,6 +27,7 @@ class Chicken extends Animal
 {
     int init()
     {
+        eattime = 1;
         name = "Chicken";
         return 0;
     }
@@ -32,6 +37,7 @@ class Cow extends Animal
 {
     int init()
     {
+        eattime = 0;
         name = "Cow";
         return 0;
     }
@@ -41,13 +47,17 @@ int main(int argc, string argv)
 {
     Animal a;
     Animal b;
+    int i;
     a = New(Chicken);
     b = New(Cow);
     a.init();
     a.p();
     a.eat();
     b.init();
-    b.p();
-    b.eat();
+    for (i=0; i<5; i=i+1)
+    {
+        b.p();
+        b.eat();
+    }
     return 0;
 }
