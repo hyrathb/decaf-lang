@@ -603,7 +603,6 @@ void gen_restore_regs(uint32_t i, struct ir ir[], struct func_detail *func)
 {
     ir[i].addressed = 1;
     ir[i].generated = 1;
-    gen_nop(ir+i);
     gen_lw(REG_SP, REG_RA, func->stacksize+PSIZE+PSIZE, ir+i);
     //gen_lw(REG_SP, REG_STACK, func->stacksize+PSIZE, ir+i);
     gen_addiu(REG_SP, REG_SP, func->stacksize+PSIZE+PSIZE, ir+i);

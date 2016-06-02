@@ -1,28 +1,39 @@
 class Animal
 {
+    string name;
+    
+    int init()
+    {
+        name = "Animal";
+    }
+    
     int eat()
     {
         Print("I am Eating");
+        return 0;
     }
-    int name()
+    int p()
     {
-        Print("I am an animal.");
+        Print(name);
+        return 0;
     }
 }
 
 class Chicken extends Animal
 {
-    int name()
+    int init()
     {
-        Print("I am chicken.");
+        name = "Chicken";
+        return 0;
     }
 }
 
 class Cow extends Animal
 {
-    int name()
+    int init()
     {
-        Print("I am a cow.");
+        name = "Cow";
+        return 0;
     }
 }
 
@@ -32,9 +43,11 @@ int main(int argc, string argv)
     Animal b;
     a = New(Chicken);
     b = New(Cow);
-    a.name();
+    a.init();
+    a.p();
     a.eat();
-    b.name();
+    b.init();
+    b.p();
     b.eat();
     return 0;
 }

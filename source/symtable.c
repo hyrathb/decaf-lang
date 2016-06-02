@@ -1685,7 +1685,9 @@ parseit(classdefine)
     {
         struct symhash *r = sym_get(current, s->classdefine->extend->extend->id->text);
         if (r->type == D_TYPE)
+        {
             new_class->base = r->detail;
+        }
         else
         {
             ERRPRINT("class %s not defined.\n", s->classdefine->extend->extend->id->text);
@@ -1699,7 +1701,10 @@ parseit(classdefine)
     parse_implement(indent+2, s->classdefine->implement);
     new_field(SCOPE_CLASS);
     if (new_class->base)
+    {
         new_class->vtable_size = new_class->base->vtable_size;
+        current->current_var_offset = new_class->base->size - PSIZE;
+    }
     else
         new_class->vtable_size = 0;
     new_class->env = current;
